@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   api:
     build: .
@@ -8,7 +6,7 @@ services:
     environment:
       - PORT=3000
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/elobrightdb
-      - JWT_SECRET=supersecretjwtkey_change_me_in_prod
+      - JWT_SECRET=e554004678050496a7e8887e8cbe8ea61b3cc23e7ce94c08d23c462e
     depends_on:
       postgres:
         condition: service_healthy
@@ -16,6 +14,11 @@ services:
       - .:/usr/src/app
       - /usr/src/app/node_modules
     command: yarn dev
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   postgres:
     image: postgres:15-alpine
