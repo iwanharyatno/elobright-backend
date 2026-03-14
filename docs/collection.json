@@ -1,535 +1,668 @@
 {
-    "info": {
-        "name": "EloBright Exam Management API",
-        "description": "Collection for EloBright Backend Endpoints, testing out Auth, CRUD endpoints, and test-taking workflow.",
-        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  "info": {
+    "name": "EloBright Exam Management API",
+    "description": "Collection for EloBright Backend Endpoints, testing out Auth, CRUD endpoints, and test-taking workflow.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"testuser@example.com\",\n  \"password\": \"securepassword\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"testuser@example.com\",\n  \"password\": \"securepassword\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        }
+      ]
     },
-    "item": [
+    {
+      "name": "Exams",
+      "item": [
         {
-            "name": "Auth",
-            "item": [
-                {
-                    "name": "Register",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"email\": \"testuser@example.com\",\n  \"password\": \"securepassword\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/api/auth/register",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "api",
-                                "auth",
-                                "register"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Login",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"email\": \"testuser@example.com\",\n  \"password\": \"securepassword\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/api/auth/login",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "api",
-                                "auth",
-                                "login"
-                            ]
-                        }
-                    }
-                }
-            ]
+          "name": "Create Exam",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Practice IELTS\",\n  \"type\": \"IELTS\",\n  \"durationMinutes\": 120\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/exams",
+              "host": ["{{base_url}}"],
+              "path": ["api", "exams"]
+            }
+          }
         },
         {
-            "name": "Exams",
-            "item": [
-                {
-                    "name": "Create Exam",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"title\": \"Practice IELTS\",\n  \"type\": \"IELTS\",\n  \"durationMinutes\": 120\n}"
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/api/exams",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "api",
-                                "exams"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get All Exams",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/api/exams",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "api",
-                                "exams"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Exam By Id",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/api/exams/:id",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "api",
-                                "exams",
-                                ":id"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "id",
-                                    "value": "exam-uuid-here"
-                                }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Update Exam",
-                    "request": {
-                        "method": "PATCH",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"durationMinutes\": 150\n}"
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/api/exams/:id",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "api",
-                                "exams",
-                                ":id"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "id",
-                                    "value": "exam-uuid-here"
-                                }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Delete Exam",
-                    "request": {
-                        "method": "DELETE",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/api/exams/:id",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "api",
-                                "exams",
-                                ":id"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "id",
-                                    "value": "exam-uuid-here"
-                                }
-                            ]
-                        }
-                    }
-                }
-            ]
+          "name": "Get All Exams",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/exams",
+              "host": ["{{base_url}}"],
+              "path": ["api", "exams"]
+            }
+          }
         },
         {
-            "name": "Exam Sections",
-            "item": [
+          "name": "Get Exam By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/exams/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "exams", ":id"],
+              "variable": [
                 {
-                    "name": "Create Section",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"examId\": \"exam-uuid-here\",\n  \"title\": \"Reading Section\",\n  \"instructions\": \"Please read carefully\",\n  \"orderIndex\": 1\n}"
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/api/exam-sections",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "api",
-                                "exam-sections"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Sections By Exam Id",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/api/exam-sections/exam/:examId",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "api",
-                                "exam-sections",
-                                "exam",
-                                ":examId"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "examId",
-                                    "value": "exam-uuid-here"
-                                }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Reorder Section",
-                    "request": {
-                        "method": "PATCH",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"direction\": \"up\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/api/exam-sections/:id/reorder",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "api",
-                                "exam-sections",
-                                ":id",
-                                "reorder"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "id",
-                                    "value": "section-uuid-here"
-                                }
-                            ]
-                        }
-                    }
+                  "key": "id",
+                  "value": "exam-uuid-here"
                 }
-            ]
+              ]
+            }
+          }
         },
         {
-            "name": "Questions",
-            "item": [
+          "name": "Update Exam",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"durationMinutes\": 150\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/exams/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "exams", ":id"],
+              "variable": [
                 {
-                    "name": "Create Question (Form-Data)",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "formdata",
-                            "formdata": [
-                                {
-                                    "key": "sectionId",
-                                    "value": "section-uuid-here",
-                                    "type": "text"
-                                },
-                                {
-                                    "key": "questionText",
-                                    "value": "What is the main topic?",
-                                    "type": "text"
-                                },
-                                {
-                                    "key": "questionType",
-                                    "value": "mcq",
-                                    "type": "text"
-                                },
-                                {
-                                    "key": "points",
-                                    "value": "1",
-                                    "type": "text"
-                                },
-                                {
-                                    "key": "audio",
-                                    "type": "file"
-                                },
-                                {
-                                    "key": "image",
-                                    "type": "file"
-                                }
-                            ]
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/api/questions",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "api",
-                                "questions"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Questions By Section Id",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/api/questions/section/:sectionId",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "api",
-                                "questions",
-                                "section",
-                                ":sectionId"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "sectionId",
-                                    "value": "section-uuid-here"
-                                }
-                            ]
-                        }
-                    }
+                  "key": "id",
+                  "value": "exam-uuid-here"
                 }
-            ]
+              ]
+            }
+          }
         },
         {
-            "name": "Question Options",
-            "item": [
+          "name": "Delete Exam",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/exams/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "exams", ":id"],
+              "variable": [
                 {
-                    "name": "Create Option",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"questionId\": \"question-uuid-here\",\n  \"optionText\": \"This is an option\",\n  \"isCorrect\": true\n}"
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/api/question-options",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "api",
-                                "question-options"
-                            ]
-                        }
-                    }
+                  "key": "id",
+                  "value": "exam-uuid-here"
                 }
-            ]
-        },
-        {
-            "name": "Exam Sessions",
-            "item": [
-                {
-                    "name": "Start Exam",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"userId\": 1,\n  \"examId\": \"exam-uuid-here\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/api/exam-sessions/start",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "api",
-                                "exam-sessions",
-                                "start"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Record Answer (MCQ)",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"questionId\": \"question-uuid-here\",\n  \"selectedOptionId\": \"option-uuid-here\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/api/exam-sessions/:id/answers",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "api",
-                                "exam-sessions",
-                                ":id",
-                                "answers"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "id",
-                                    "value": "session-uuid-here"
-                                }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Record Answer (Speaking)",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "formdata",
-                            "formdata": [
-                                {
-                                    "key": "questionId",
-                                    "value": "question-uuid-here",
-                                    "type": "text"
-                                },
-                                {
-                                    "key": "audio",
-                                    "type": "file"
-                                }
-                            ]
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/api/exam-sessions/:id/answers",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "api",
-                                "exam-sessions",
-                                ":id",
-                                "answers"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "id",
-                                    "value": "session-uuid-here"
-                                }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Finish Exam",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "url": {
-                            "raw": "{{base_url}}/api/exam-sessions/:id/finish",
-                            "host": [
-                                "{{base_url}}"
-                            ],
-                            "path": [
-                                "api",
-                                "exam-sessions",
-                                ":id",
-                                "finish"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "id",
-                                    "value": "session-uuid-here"
-                                }
-                            ]
-                        }
-                    }
-                }
-            ]
+              ]
+            }
+          }
         }
-    ],
-    "variable": [
+      ]
+    },
+    {
+      "name": "Exam Sections",
+      "item": [
         {
-            "key": "base_url",
-            "value": "http://localhost:3000",
-            "type": "string"
+          "name": "Create Section",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"examId\": \"exam-uuid-here\",\n  \"title\": \"Reading Section\",\n  \"instructions\": \"Please read carefully\",\n  \"orderIndex\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/exam-sections",
+              "host": ["{{base_url}}"],
+              "path": ["api", "exam-sections"]
+            }
+          }
+        },
+        {
+          "name": "Get Sections By Exam Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/exam-sections/exam/:examId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "exam-sections", "exam", ":examId"],
+              "variable": [
+                {
+                  "key": "examId",
+                  "value": "exam-uuid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Section By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/exam-sections/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "exam-sections", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "section-uuid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Section",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Reading Section\",\n  \"instructions\": \"Read all passages carefully before answering\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/exam-sections/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "exam-sections", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "section-uuid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reorder Section",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"direction\": \"up\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/exam-sections/:id/reorder",
+              "host": ["{{base_url}}"],
+              "path": ["api", "exam-sections", ":id", "reorder"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "section-uuid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Section",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/exam-sections/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "exam-sections", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "section-uuid-here"
+                }
+              ]
+            }
+          }
         }
-    ]
+      ]
+    },
+    {
+      "name": "Questions",
+      "item": [
+        {
+          "name": "Create Question (Form-Data)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "sectionId",
+                  "value": "section-uuid-here",
+                  "type": "text"
+                },
+                {
+                  "key": "questionText",
+                  "value": "What is the main topic?",
+                  "type": "text"
+                },
+                {
+                  "key": "questionType",
+                  "value": "mcq",
+                  "type": "text"
+                },
+                {
+                  "key": "narrativeText",
+                  "value": "Read the following passage carefully.",
+                  "type": "text"
+                },
+                {
+                  "key": "points",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "audio",
+                  "type": "file"
+                },
+                {
+                  "key": "image",
+                  "type": "file"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/questions",
+              "host": ["{{base_url}}"],
+              "path": ["api", "questions"]
+            }
+          }
+        },
+        {
+          "name": "Get Questions By Section Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/questions/section/:sectionId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "questions", "section", ":sectionId"],
+              "variable": [
+                {
+                  "key": "sectionId",
+                  "value": "section-uuid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Question By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/questions/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "questions", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "question-uuid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Question (Form-Data)",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "questionText",
+                  "value": "What is the secondary topic?",
+                  "type": "text"
+                },
+                {
+                  "key": "points",
+                  "value": "2",
+                  "type": "text"
+                },
+                {
+                  "key": "narrativeText",
+                  "value": "Read the updated passage carefully.",
+                  "type": "text"
+                },
+                {
+                  "key": "questionType",
+                  "value": "mcq",
+                  "type": "text"
+                },
+                {
+                  "key": "audio",
+                  "type": "file"
+                },
+                {
+                  "key": "image",
+                  "type": "file"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/questions/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "questions", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "question-uuid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Question",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/questions/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "questions", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "question-uuid-here"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Question Options",
+      "item": [
+        {
+          "name": "Create Option",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"questionId\": \"question-uuid-here\",\n  \"optionText\": \"This is an option\",\n  \"isCorrect\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/question-options",
+              "host": ["{{base_url}}"],
+              "path": ["api", "question-options"]
+            }
+          }
+        },
+        {
+          "name": "Get Options By Question Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/question-options/question/:questionId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "question-options", "question", ":questionId"],
+              "variable": [
+                {
+                  "key": "questionId",
+                  "value": "question-uuid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Option By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/question-options/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "question-options", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "option-uuid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Option",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"optionText\": \"This is an updated option\",\n  \"isCorrect\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/question-options/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "question-options", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "option-uuid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Option",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/question-options/:id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "question-options", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "option-uuid-here"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Exam Sessions",
+      "item": [
+        {
+          "name": "Start Exam",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": 1,\n  \"examId\": \"exam-uuid-here\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/exam-sessions/start",
+              "host": ["{{base_url}}"],
+              "path": ["api", "exam-sessions", "start"]
+            }
+          }
+        },
+        {
+          "name": "Record Answer (MCQ)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"questionId\": \"question-uuid-here\",\n  \"selectedOptionId\": \"option-uuid-here\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/exam-sessions/:id/answers",
+              "host": ["{{base_url}}"],
+              "path": ["api", "exam-sessions", ":id", "answers"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "session-uuid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Record Answer (Speaking)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "questionId",
+                  "value": "question-uuid-here",
+                  "type": "text"
+                },
+                {
+                  "key": "audio",
+                  "type": "file"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/exam-sessions/:id/answers",
+              "host": ["{{base_url}}"],
+              "path": ["api", "exam-sessions", ":id", "answers"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "session-uuid-here"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Finish Exam",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/exam-sessions/:id/finish",
+              "host": ["{{base_url}}"],
+              "path": ["api", "exam-sessions", ":id", "finish"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "session-uuid-here"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ]
 }
