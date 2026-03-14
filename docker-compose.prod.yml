@@ -9,6 +9,8 @@ services:
       db:
         condition: service_healthy
     command: yarn start
+    volumes:
+      - "./uploads:/uploads"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3000/health"]
       interval: 5s
