@@ -15,9 +15,11 @@ export class ManageExamSessions {
         }
 
         const existingSubmissions = await this.submissionRepository.findByUserAndExam(userId, examId);
-        const hasOngoing = existingSubmissions.some(s => s.status === 'ongoing');
-        if (hasOngoing) {
-            throw new Error('Ongoing session already exists');
+        const ongoingSession = existingSubmissions.find(s => s.status === 'ongoing');
+        if (ongoingSession) {
+            const error = new Error('Ongoing session already exists') as any;
+            error.session = ongoingSession;
+            throw error;
         }
 
         const startedAt = new Date();

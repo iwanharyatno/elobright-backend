@@ -61,7 +61,17 @@ export class ExamSubmissionController {
                 return res.status(404).json({ message: error.message });
             }
             if (error.message === 'Ongoing session already exists') {
-                return res.status(400).json({ message: error.message });
+                let endTimeLocale: string | undefined;
+                if (error.session && error.session.endTimeLimit && error.session.timezone) {
+                    try {
+                        endTimeLocale = toLocalISOString(new Date(error.session.endTimeLimit), error.session.timezone);
+                    } catch (e) {}
+                }
+                
+                return res.status(400).json({ 
+                    message: error.message, 
+                    session: error.session ? { ...error.session, endTimeLocale } : undefined 
+                });
             }
             next(error);
         }
