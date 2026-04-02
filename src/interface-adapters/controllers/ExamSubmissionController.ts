@@ -85,7 +85,19 @@ export class ExamSubmissionController {
             if (!session) {
                 return res.status(404).json({ message: 'Exam session not found' });
             }
-            res.status(200).json({ message: 'Exam finished', session });
+            let endTimeLocale: string | undefined;
+            let submittedAtLocale: string | undefined;
+            if (session.timezone) {
+                try {
+                    if (session.endTimeLimit) endTimeLocale = toLocalISOString(new Date(session.endTimeLimit), session.timezone);
+                    if (session.submittedAt) submittedAtLocale = toLocalISOString(new Date(session.submittedAt), session.timezone);
+                } catch (e) {}
+            }
+
+            res.status(200).json({ 
+                message: 'Exam finished', 
+                session: { ...session, endTimeLocale, submittedAtLocale } 
+            });
         } catch (error: any) {
             if (error.message === 'Time window exceeded') {
                 return res.status(400).json({ message: error.message });
