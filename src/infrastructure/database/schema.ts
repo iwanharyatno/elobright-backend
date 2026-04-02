@@ -1,9 +1,14 @@
-import { pgTable, serial, varchar, timestamp, uuid, integer, text, boolean, decimal } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, timestamp, uuid, integer, text, boolean, pgEnum } from 'drizzle-orm/pg-core';
+
+export const roleEnum = pgEnum('role', ['superadmin', 'admin', 'reviewer', 'moderator', 'user']);
 
 export const usersTable = pgTable('users', {
     id: serial('id').primaryKey(),
     email: varchar('email', { length: 255 }).notNull().unique(),
     passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+    fullName: varchar('full_name', { length: 255 }),
+    role: roleEnum('role').default('user'),
+    phoneNumber: varchar('phone_number', { length: 50 }),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -47,8 +52,10 @@ export const examSubmissionsTable = pgTable('exam_submissions', {
     examId: uuid('exam_id').references(() => examsTable.id).notNull(),
     status: varchar('status', { length: 50 }),
     totalScore: integer('total_score').default(0),
-    startedAt: timestamp('started_at').defaultNow(),
-    submittedAt: timestamp('submitted_at'),
+    timezone: varchar('timezone', { length: 100 }),
+    startedAt: timestamp('started_at', { withTimezone: true }).defaultNow(),
+    endTimeLimit: timestamp('end_time_limit', { withTimezone: true }),
+    submittedAt: timestamp('submitted_at', { withTimezone: true }),
 });
 
 export const userAnswersTable = pgTable('user_answers', {

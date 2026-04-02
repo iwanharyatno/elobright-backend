@@ -6,7 +6,7 @@ services:
     env_file:
       - .env
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
     volumes:
       - .:/usr/src/app
@@ -18,7 +18,7 @@ services:
       timeout: 5s
       retries: 5
 
-  postgres:
+  db:
     image: postgres:15-alpine
     env_file:
       - .env

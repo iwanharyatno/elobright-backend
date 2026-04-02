@@ -8,6 +8,8 @@ import { DrizzleUserAnswerRepository } from '../../../interface-adapters/reposit
 import { DrizzleExamRepository } from '../../../interface-adapters/repositories/DrizzleExamRepository';
 import { DrizzleQuestionOptionRepository } from '../../../interface-adapters/repositories/DrizzleQuestionOptionRepository';
 
+import { authMiddleware, ROLE_USER } from '../middleware/authMiddleware';
+
 const router = Router();
 
 // Initialize repositories
@@ -17,7 +19,7 @@ const examRepository = new DrizzleExamRepository();
 const optionRepository = new DrizzleQuestionOptionRepository();
 
 // Initialize use cases
-const manageExamSessions = new ManageExamSessions(submissionRepository);
+const manageExamSessions = new ManageExamSessions(submissionRepository, examRepository);
 const recordUserAnswer = new RecordUserAnswer(
     userAnswerRepository,
     submissionRepository,
@@ -29,8 +31,8 @@ const recordUserAnswer = new RecordUserAnswer(
 const controller = new ExamSubmissionController(manageExamSessions, recordUserAnswer);
 
 // Routes
-router.post('/start', controller.start);
-router.post('/:id/finish', controller.finish);
-router.post('/:id/answers', uploadMiddleware.single('audio'), controller.recordAnswer);
+router.post('/start', authMiddleware(ROLE_USER), controller.start);
+router.post('/:id/finish', authMiddleware(ROLE_USER), controller.finish);
+router.post('/:id/answers', authMiddleware(ROLE_USER), uploadMiddleware.single('audio'), controller.recordAnswer);
 
 export const examSubmissionRoutes = router;

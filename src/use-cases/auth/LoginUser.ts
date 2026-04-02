@@ -18,7 +18,7 @@ export class LoginUser {
         }
 
         const token = jwt.sign(
-            { userId: user.id },
+            { userId: user.id, role: user.role || 'user' },
             env.JWT_SECRET,
             { expiresIn: '1d' }
         );

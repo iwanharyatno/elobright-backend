@@ -13,11 +13,16 @@ describe('RecordUserAnswer', () => {
     let useCase: RecordUserAnswer;
 
     beforeEach(() => {
-        mockUserAnswerRepository = { create: jest.fn() };
+        mockUserAnswerRepository = {
+            create: jest.fn(),
+            update: jest.fn(),
+            findBySubmissionAndQuestion: jest.fn()
+        };
         mockSubmissionRepository = {
             create: jest.fn(),
             update: jest.fn(),
             findById: jest.fn(),
+            findByUserAndExam: jest.fn(),
             incrementTotalScore: jest.fn()
         };
         mockExamRepository = {
@@ -45,7 +50,7 @@ describe('RecordUserAnswer', () => {
 
     it('should throw an error if submission is not ongoing', async () => {
         mockSubmissionRepository.findById.mockResolvedValue({
-            id: 'sub-1', userId: 1, examId: 'exam-1', status: 'submitted', totalScore: 0, startedAt: new Date(), submittedAt: new Date()
+            id: 'sub-1', userId: 1, examId: 'exam-1', status: 'submitted', totalScore: 0, timezone: null, startedAt: new Date(), endTimeLimit: new Date(), submittedAt: new Date()
         });
 
         await expect(useCase.execute('sub-1', 'q-1')).rejects.toThrow('Exam is not currently ongoing');
@@ -58,7 +63,7 @@ describe('RecordUserAnswer', () => {
 
         const startedAt = new Date('2023-01-01T10:00:00Z');
         mockSubmissionRepository.findById.mockResolvedValue({
-            id: 'sub-1', userId: 1, examId: 'exam-1', status: 'ongoing', totalScore: 0, startedAt, submittedAt: null
+            id: 'sub-1', userId: 1, examId: 'exam-1', status: 'ongoing', totalScore: 0, timezone: null, startedAt, endTimeLimit: new Date(), submittedAt: null
         });
 
         mockExamRepository.findById.mockResolvedValue({
@@ -76,7 +81,7 @@ describe('RecordUserAnswer', () => {
         jest.setSystemTime(mockNow);
 
         mockSubmissionRepository.findById.mockResolvedValue({
-            id: 'sub-1', userId: 1, examId: 'exam-1', status: 'ongoing', totalScore: 0, startedAt: new Date('2023-01-01T10:00:00Z'), submittedAt: null
+            id: 'sub-1', userId: 1, examId: 'exam-1', status: 'ongoing', totalScore: 0, timezone: null, startedAt: new Date('2023-01-01T10:00:00Z'), endTimeLimit: new Date(), submittedAt: null
         });
         mockExamRepository.findById.mockResolvedValue({
             id: 'exam-1', title: 'Test Exam', type: 'IELTS', durationMinutes: 60
@@ -106,7 +111,7 @@ describe('RecordUserAnswer', () => {
         jest.setSystemTime(mockNow);
 
         mockSubmissionRepository.findById.mockResolvedValue({
-            id: 'sub-1', userId: 1, examId: 'exam-1', status: 'ongoing', totalScore: 0, startedAt: new Date('2023-01-01T10:00:00Z'), submittedAt: null
+            id: 'sub-1', userId: 1, examId: 'exam-1', timezone: null, status: 'ongoing', totalScore: 0, startedAt: new Date('2023-01-01T10:00:00Z'), endTimeLimit: new Date(), submittedAt: null
         });
         mockExamRepository.findById.mockResolvedValue({
             id: 'exam-1', title: 'Test Exam', type: 'IELTS', durationMinutes: 60
@@ -128,6 +133,67 @@ describe('RecordUserAnswer', () => {
             audioResponseUrl: null
         });
         expect(result).toEqual(expectedAnswer);
+
+        jest.useRealTimers();
+    });
+
+    it('should correctly increment/decrement totalScore through multiple choice selections (upsert flow)', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2023-01-01T10:30:00Z'));
+
+        mockSubmissionRepository.findById.mockResolvedValue({
+            id: 'sub-1', userId: 1, examId: 'exam-1', status: 'ongoing', totalScore: 0, timezone: null, startedAt: new Date('2023-01-01T10:00:00Z'), endTimeLimit: new Date(), submittedAt: null
+        });
+        mockExamRepository.findById.mockResolvedValue({
+            id: 'exam-1', title: 'Test Exam', type: 'IELTS', durationMinutes: 60
+        });
+
+        mockOptionRepository.findById.mockImplementation(async (id: string) => {
+            if (id === 'opt-correct') return { id: 'opt-correct', questionId: 'q-1', optionText: 'C', isCorrect: true };
+            if (id === 'opt-wrong') return { id: 'opt-wrong', questionId: 'q-1', optionText: 'W', isCorrect: false };
+            return null;
+        });
+
+        let currentExistingAnswer: any = null;
+        mockUserAnswerRepository.findBySubmissionAndQuestion.mockImplementation(async () => currentExistingAnswer);
+        mockUserAnswerRepository.create.mockImplementation(async (data: any) => {
+            currentExistingAnswer = { id: 'ans-1', ...data };
+            return currentExistingAnswer;
+        });
+        mockUserAnswerRepository.update.mockImplementation(async (id: string, data: any) => {
+            currentExistingAnswer = { ...currentExistingAnswer, ...data };
+            return currentExistingAnswer;
+        });
+
+        // 1. User select wrong first answer
+        currentExistingAnswer = null; // force clean state
+        await useCase.execute('sub-1', 'q-1', 'opt-wrong');
+        expect(mockSubmissionRepository.incrementTotalScore).not.toHaveBeenCalled();
+        mockSubmissionRepository.incrementTotalScore.mockClear();
+
+        // 2. Correct second answer (wrong -> correct) -> should +1
+        await useCase.execute('sub-1', 'q-1', 'opt-correct');
+        expect(mockSubmissionRepository.incrementTotalScore).toHaveBeenLastCalledWith('sub-1', 1);
+        mockSubmissionRepository.incrementTotalScore.mockClear();
+
+        // 3. Wrong again (correct -> wrong) -> should -1
+        await useCase.execute('sub-1', 'q-1', 'opt-wrong');
+        expect(mockSubmissionRepository.incrementTotalScore).toHaveBeenLastCalledWith('sub-1', -1);
+        mockSubmissionRepository.incrementTotalScore.mockClear();
+
+        // 4. Wrong again (wrong -> wrong) -> should not be called
+        await useCase.execute('sub-1', 'q-1', 'opt-wrong');
+        expect(mockSubmissionRepository.incrementTotalScore).not.toHaveBeenCalled();
+        mockSubmissionRepository.incrementTotalScore.mockClear();
+
+        // 5. Correct then (wrong -> correct) -> should +1
+        await useCase.execute('sub-1', 'q-1', 'opt-correct');
+        expect(mockSubmissionRepository.incrementTotalScore).toHaveBeenLastCalledWith('sub-1', 1);
+        mockSubmissionRepository.incrementTotalScore.mockClear();
+
+        // 6. Correct again (correct -> correct) -> should not be called
+        await useCase.execute('sub-1', 'q-1', 'opt-correct');
+        expect(mockSubmissionRepository.incrementTotalScore).not.toHaveBeenCalled();
 
         jest.useRealTimers();
     });

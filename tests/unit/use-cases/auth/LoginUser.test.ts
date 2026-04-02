@@ -38,7 +38,7 @@ describe('LoginUser Use Case', () => {
 
         expect(mockUserRepository.findByEmail).toHaveBeenCalledWith('test@example.com');
         expect(bcrypt.compare).toHaveBeenCalledWith('password123', 'hashedpassword');
-        expect(jwt.sign).toHaveBeenCalledWith({ userId: mockUser.id }, 'secret', { expiresIn: '1d' });
+        expect(jwt.sign).toHaveBeenCalledWith({ userId: mockUser.id, role: 'user' }, 'secret', { expiresIn: '1d' });
         expect(result).toEqual({ token: 'mocked-token' });
     });
 

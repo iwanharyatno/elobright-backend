@@ -20,12 +20,18 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"testuser@example.com\",\n  \"password\": \"securepassword\"\n}"
+              "raw": "{\n  \"email\": \"testuser@example.com\",\n  \"password\": \"securepassword\",\n  \"full_name\": \"Test User\",\n  \"role\": \"user\",\n  \"phone_number\": \"1234567890\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/api/auth/register",
-              "host": ["{{base_url}}"],
-              "path": ["api", "auth", "register"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
             }
           }
         },
@@ -45,8 +51,14 @@
             },
             "url": {
               "raw": "{{base_url}}/api/auth/login",
-              "host": ["{{base_url}}"],
-              "path": ["api", "auth", "login"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
             }
           }
         }
@@ -71,8 +83,13 @@
             },
             "url": {
               "raw": "{{base_url}}/api/exams",
-              "host": ["{{base_url}}"],
-              "path": ["api", "exams"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "exams"
+              ]
             }
           }
         },
@@ -83,8 +100,13 @@
             "header": [],
             "url": {
               "raw": "{{base_url}}/api/exams",
-              "host": ["{{base_url}}"],
-              "path": ["api", "exams"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "exams"
+              ]
             }
           }
         },
@@ -95,8 +117,14 @@
             "header": [],
             "url": {
               "raw": "{{base_url}}/api/exams/:id",
-              "host": ["{{base_url}}"],
-              "path": ["api", "exams", ":id"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "exams",
+                ":id"
+              ],
               "variable": [
                 {
                   "key": "id",
@@ -122,8 +150,14 @@
             },
             "url": {
               "raw": "{{base_url}}/api/exams/:id",
-              "host": ["{{base_url}}"],
-              "path": ["api", "exams", ":id"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "exams",
+                ":id"
+              ],
               "variable": [
                 {
                   "key": "id",
@@ -140,8 +174,14 @@
             "header": [],
             "url": {
               "raw": "{{base_url}}/api/exams/:id",
-              "host": ["{{base_url}}"],
-              "path": ["api", "exams", ":id"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "exams",
+                ":id"
+              ],
               "variable": [
                 {
                   "key": "id",
@@ -172,8 +212,13 @@
             },
             "url": {
               "raw": "{{base_url}}/api/exam-sections",
-              "host": ["{{base_url}}"],
-              "path": ["api", "exam-sections"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "exam-sections"
+              ]
             }
           }
         },
@@ -184,8 +229,15 @@
             "header": [],
             "url": {
               "raw": "{{base_url}}/api/exam-sections/exam/:examId",
-              "host": ["{{base_url}}"],
-              "path": ["api", "exam-sections", "exam", ":examId"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "exam-sections",
+                "exam",
+                ":examId"
+              ],
               "variable": [
                 {
                   "key": "examId",
@@ -202,8 +254,14 @@
             "header": [],
             "url": {
               "raw": "{{base_url}}/api/exam-sections/:id",
-              "host": ["{{base_url}}"],
-              "path": ["api", "exam-sections", ":id"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "exam-sections",
+                ":id"
+              ],
               "variable": [
                 {
                   "key": "id",
@@ -229,8 +287,14 @@
             },
             "url": {
               "raw": "{{base_url}}/api/exam-sections/:id",
-              "host": ["{{base_url}}"],
-              "path": ["api", "exam-sections", ":id"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "exam-sections",
+                ":id"
+              ],
               "variable": [
                 {
                   "key": "id",
@@ -256,8 +320,15 @@
             },
             "url": {
               "raw": "{{base_url}}/api/exam-sections/:id/reorder",
-              "host": ["{{base_url}}"],
-              "path": ["api", "exam-sections", ":id", "reorder"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "exam-sections",
+                ":id",
+                "reorder"
+              ],
               "variable": [
                 {
                   "key": "id",
@@ -274,8 +345,14 @@
             "header": [],
             "url": {
               "raw": "{{base_url}}/api/exam-sections/:id",
-              "host": ["{{base_url}}"],
-              "path": ["api", "exam-sections", ":id"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "exam-sections",
+                ":id"
+              ],
               "variable": [
                 {
                   "key": "id",
@@ -335,8 +412,13 @@
             },
             "url": {
               "raw": "{{base_url}}/api/questions",
-              "host": ["{{base_url}}"],
-              "path": ["api", "questions"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "questions"
+              ]
             }
           }
         },
@@ -347,8 +429,15 @@
             "header": [],
             "url": {
               "raw": "{{base_url}}/api/questions/section/:sectionId",
-              "host": ["{{base_url}}"],
-              "path": ["api", "questions", "section", ":sectionId"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "questions",
+                "section",
+                ":sectionId"
+              ],
               "variable": [
                 {
                   "key": "sectionId",
@@ -365,8 +454,14 @@
             "header": [],
             "url": {
               "raw": "{{base_url}}/api/questions/:id",
-              "host": ["{{base_url}}"],
-              "path": ["api", "questions", ":id"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "questions",
+                ":id"
+              ],
               "variable": [
                 {
                   "key": "id",
@@ -416,8 +511,14 @@
             },
             "url": {
               "raw": "{{base_url}}/api/questions/:id",
-              "host": ["{{base_url}}"],
-              "path": ["api", "questions", ":id"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "questions",
+                ":id"
+              ],
               "variable": [
                 {
                   "key": "id",
@@ -434,8 +535,14 @@
             "header": [],
             "url": {
               "raw": "{{base_url}}/api/questions/:id",
-              "host": ["{{base_url}}"],
-              "path": ["api", "questions", ":id"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "questions",
+                ":id"
+              ],
               "variable": [
                 {
                   "key": "id",
@@ -466,8 +573,13 @@
             },
             "url": {
               "raw": "{{base_url}}/api/question-options",
-              "host": ["{{base_url}}"],
-              "path": ["api", "question-options"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "question-options"
+              ]
             }
           }
         },
@@ -478,8 +590,15 @@
             "header": [],
             "url": {
               "raw": "{{base_url}}/api/question-options/question/:questionId",
-              "host": ["{{base_url}}"],
-              "path": ["api", "question-options", "question", ":questionId"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "question-options",
+                "question",
+                ":questionId"
+              ],
               "variable": [
                 {
                   "key": "questionId",
@@ -496,8 +615,14 @@
             "header": [],
             "url": {
               "raw": "{{base_url}}/api/question-options/:id",
-              "host": ["{{base_url}}"],
-              "path": ["api", "question-options", ":id"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "question-options",
+                ":id"
+              ],
               "variable": [
                 {
                   "key": "id",
@@ -523,8 +648,14 @@
             },
             "url": {
               "raw": "{{base_url}}/api/question-options/:id",
-              "host": ["{{base_url}}"],
-              "path": ["api", "question-options", ":id"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "question-options",
+                ":id"
+              ],
               "variable": [
                 {
                   "key": "id",
@@ -541,8 +672,14 @@
             "header": [],
             "url": {
               "raw": "{{base_url}}/api/question-options/:id",
-              "host": ["{{base_url}}"],
-              "path": ["api", "question-options", ":id"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "question-options",
+                ":id"
+              ],
               "variable": [
                 {
                   "key": "id",
@@ -573,8 +710,14 @@
             },
             "url": {
               "raw": "{{base_url}}/api/exam-sessions/start",
-              "host": ["{{base_url}}"],
-              "path": ["api", "exam-sessions", "start"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "exam-sessions",
+                "start"
+              ]
             }
           }
         },
@@ -594,8 +737,15 @@
             },
             "url": {
               "raw": "{{base_url}}/api/exam-sessions/:id/answers",
-              "host": ["{{base_url}}"],
-              "path": ["api", "exam-sessions", ":id", "answers"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "exam-sessions",
+                ":id",
+                "answers"
+              ],
               "variable": [
                 {
                   "key": "id",
@@ -626,8 +776,15 @@
             },
             "url": {
               "raw": "{{base_url}}/api/exam-sessions/:id/answers",
-              "host": ["{{base_url}}"],
-              "path": ["api", "exam-sessions", ":id", "answers"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "exam-sessions",
+                ":id",
+                "answers"
+              ],
               "variable": [
                 {
                   "key": "id",
@@ -644,8 +801,15 @@
             "header": [],
             "url": {
               "raw": "{{base_url}}/api/exam-sessions/:id/finish",
-              "host": ["{{base_url}}"],
-              "path": ["api", "exam-sessions", ":id", "finish"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "exam-sessions",
+                ":id",
+                "finish"
+              ],
               "variable": [
                 {
                   "key": "id",

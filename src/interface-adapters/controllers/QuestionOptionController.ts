@@ -44,6 +44,19 @@ export class QuestionOptionController {
         }
     };
 
+    getByQuestionIdForUser = async (req: Request<{ questionId: string }>, res: Response, next: NextFunction) => {
+        try {
+            const options = await this.manageQuestionOptions.getByQuestionId(req.params.questionId);
+            const sanitizedOptions = options.map(opt => {
+                const { isCorrect, ...rest } = opt;
+                return rest;
+            });
+            res.status(200).json(sanitizedOptions);
+        } catch (error) {
+            next(error);
+        }
+    };
+
     update = async (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
         try {
             const data = updateQuestionOptionSchema.parse(req.body);

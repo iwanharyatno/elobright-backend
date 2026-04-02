@@ -41,15 +41,41 @@ export class RecordUserAnswer {
             audioResponseUrl = `/uploads/${audioFile.filename}`;
         }
 
-        // 3. Handle scoring for MCQ
-        if (selectedOptionId) {
-            const selectedOption = await this.optionRepository.findById(selectedOptionId);
-            if (selectedOption && selectedOption.isCorrect) {
-                await this.submissionRepository.incrementTotalScore(submissionId, 1);
-            }
+        // 3. Handle scoring for MCQ with Upsert
+        const existingAnswer = await this.userAnswerRepository.findBySubmissionAndQuestion(submissionId, questionId);
+
+        let wasCorrect = false;
+        if (existingAnswer?.selectedOptionId) {
+            const oldOption = await this.optionRepository.findById(existingAnswer.selectedOptionId);
+            wasCorrect = oldOption?.isCorrect || false;
         }
 
-        // 4. Record answer
+        let isCorrectNow = false;
+        if (selectedOptionId) {
+            const newOption = await this.optionRepository.findById(selectedOptionId);
+            isCorrectNow = newOption?.isCorrect || false;
+        }
+
+        let scoreDelta = 0;
+        if (!wasCorrect && isCorrectNow) {
+            scoreDelta = 1;
+        } else if (wasCorrect && !isCorrectNow) {
+            scoreDelta = -1;
+        }
+
+        if (scoreDelta !== 0) {
+            await this.submissionRepository.incrementTotalScore(submissionId, scoreDelta);
+        }
+
+        // 4. Record or update answer
+        if (existingAnswer) {
+            return this.userAnswerRepository.update(existingAnswer.id, {
+                selectedOptionId: selectedOptionId || null,
+                textResponse: textResponse || null,
+                ...(audioResponseUrl && { audioResponseUrl })
+            });
+        }
+
         return this.userAnswerRepository.create({
             submissionId,
             questionId,

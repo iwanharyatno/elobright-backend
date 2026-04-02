@@ -24,20 +24,22 @@ describe('RegisterUser Use Case', () => {
 
         const mockCreatedUser = {
             id: 1,
+            fullName: 'Test User',
             email: 'test@example.com',
             passwordHash: 'hashedpassword',
+            phoneNumber: '08123456789',
             createdAt: new Date(),
             updatedAt: new Date(),
         };
 
         mockUserRepository.create.mockResolvedValue(mockCreatedUser);
 
-        const result = await registerUser.execute('test@example.com', 'password123');
+        const result = await registerUser.execute('test@example.com', 'password123', 'Test User', '08123456789');
 
         expect(mockUserRepository.findByEmail).toHaveBeenCalledWith('test@example.com');
         expect(bcrypt.genSalt).toHaveBeenCalledWith(10);
         expect(bcrypt.hash).toHaveBeenCalledWith('password123', 'randomsalt');
-        expect(mockUserRepository.create).toHaveBeenCalledWith({ email: 'test@example.com', passwordHash: 'hashedpassword' });
+        expect(mockUserRepository.create).toHaveBeenCalledWith({ email: 'test@example.com', fullName: 'Test User', phoneNumber: '08123456789', passwordHash: 'hashedpassword' });
 
         expect(result).toHaveProperty('id', 1);
         expect(result).toHaveProperty('email', 'test@example.com');
@@ -47,14 +49,16 @@ describe('RegisterUser Use Case', () => {
     it('should throw an error if email is already in use', async () => {
         const mockExistingUser = {
             id: 1,
+            fullName: 'Test User',
             email: 'test@example.com',
             passwordHash: 'hashedpassword',
+            phoneNumber: '08123456789',
             createdAt: new Date(),
             updatedAt: new Date(),
         };
 
         mockUserRepository.findByEmail.mockResolvedValue(mockExistingUser);
 
-        await expect(registerUser.execute('test@example.com', 'password123')).rejects.toThrow('Email already in use');
+        await expect(registerUser.execute('test@example.com', 'password123', 'Test User', '08123456789')).rejects.toThrow('Email already in use');
     });
 });

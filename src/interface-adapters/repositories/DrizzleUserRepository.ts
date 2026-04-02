@@ -22,6 +22,9 @@ export class DrizzleUserRepository implements IUserRepository {
             .values({
                 email: userData.email,
                 passwordHash: userData.passwordHash,
+                fullName: userData.fullName,
+                role: userData.role || 'user',
+                phoneNumber: userData.phoneNumber,
             })
             .returning();
 
