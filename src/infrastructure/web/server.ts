@@ -13,7 +13,11 @@ import { errorHandler } from "./middleware/errorHandler";
 export const createServer = () => {
   const app = express();
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: "cross-origin" }
+    })
+  );
   app.use(cors());
   app.use(express.json());
 
@@ -22,11 +26,7 @@ export const createServer = () => {
   // (e.g. a separate frontend) can load images and audio files directly.
   app.use(
     "/uploads",
-    (req, res, next) => {
-      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-      next();
-    },
-    express.static(path.join(__dirname, "../../../uploads")),
+    express.static(path.join(__dirname, "../../../uploads"))
   );
 
   app.use("/api/auth", authRoutes);
