@@ -34,8 +34,16 @@ export class AuthController {
     login = async (req: Request, res: Response, next: NextFunction) => {
         try {
             const { email, password } = loginSchema.parse(req.body);
-            const { token } = await this.loginUserUseCase.execute(email, password);
-            res.status(200).json({ message: 'Login successful', token });
+            const { token, user } = await this.loginUserUseCase.execute(email, password);
+            res.status(200).json({
+                message: 'Login successful', token, user: {
+                    id: user.id,
+                    email: user.email,
+                    fullName: user.fullName,
+                    phoneNumber: user.phoneNumber,
+                    role: user.role,
+                }
+            });
         } catch (error) {
             next(error);
         }
