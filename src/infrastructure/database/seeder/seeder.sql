@@ -3,12 +3,13 @@ INSERT INTO users (email, password_hash, full_name, role, phone_number) VALUES
 ('superadmin@elobright.com', '$2b$10$/UtBiE3Ju4E8Q.wg4ufi2eC1NIBB1DaqJn9OwZGhTZZA94R746.q.', 'Default Super Admin', 'superadmin', '+1234567890')
 ON CONFLICT (email) DO NOTHING;
 
--- 1. EXAM SEEDER (2 Records)
+-- 1. EXAM SEEDER (3 Records)
 INSERT INTO exams (id, title, type, duration_minutes) VALUES
 ('11111111-0000-4000-8000-000000000001', 'TOEFL Practice Exam 1', 'TOEFL', 120),
-('11111111-0000-4000-8000-000000000002', 'IELTS Practice Exam 1', 'IELTS', 150);
+('11111111-0000-4000-8000-000000000002', 'IELTS Practice Exam 1', 'IELTS', 150),
+('11111111-0000-4000-8000-000000000003', 'Essay Practice', 'ESSAY_PRACTICE', 60);
 
--- 2. EXAM SECTIONS SEEDER (8 Records - 4 for each exam)
+-- 2. EXAM SECTIONS SEEDER (9 Records - 4 for TOEFL, 4 for IELTS, 1 for Essay Practice)
 INSERT INTO exam_sections (id, exam_id, title, instructions, order_index) VALUES
 -- TOEFL Sections
 ('22222222-0000-4000-8000-000000000001', '11111111-0000-4000-8000-000000000001', 'Reading', 'Read the passage and answer questions.', 1),
@@ -19,7 +20,9 @@ INSERT INTO exam_sections (id, exam_id, title, instructions, order_index) VALUES
 ('33333333-0000-4000-8000-000000000001', '11111111-0000-4000-8000-000000000002', 'Reading', 'Read the passage and answer questions.', 5),
 ('33333333-0000-4000-8000-000000000002', '11111111-0000-4000-8000-000000000002', 'Listening', 'Listen to the audio and answer questions.', 6),
 ('33333333-0000-4000-8000-000000000003', '11111111-0000-4000-8000-000000000002', 'Writing', 'Write an essay based on the instructions.', 7),
-('33333333-0000-4000-8000-000000000004', '11111111-0000-4000-8000-000000000002', 'Speaking', 'Speak your answer and record it.', 8);
+('33333333-0000-4000-8000-000000000004', '11111111-0000-4000-8000-000000000002', 'Speaking', 'Speak your answer and record it.', 8),
+-- Essay Practice Section
+('44444444-0000-4000-8000-000000000001', '11111111-0000-4000-8000-000000000003', 'Essay Writing', 'Write a well-structured essay on the given topic. Aim for at least 250 words.', 1);
 
 -- We'll use an anonymous DO block in PostgreSQL for iterative dynamic inserts to prevent huge file bloat while maintaining exact requirements:
 DO $$
@@ -70,3 +73,12 @@ BEGIN
 
     END LOOP;
 END $$;
+
+-- 5. ESSAY PRACTICE QUESTIONS (3 Real Essay Prompts)
+INSERT INTO questions (id, section_id, question_text, question_type, points) VALUES
+('55555555-0000-4000-8000-000000000001', '44444444-0000-4000-8000-000000000001', 
+ 'Some people believe that technology has made our lives easier, while others argue it has made us more dependent. Discuss both views and give your opinion.', 'essay', 5),
+('55555555-0000-4000-8000-000000000002', '44444444-0000-4000-8000-000000000001', 
+ 'Education is the most important factor in the development of a country. To what extent do you agree or disagree?', 'essay', 5),
+('55555555-0000-4000-8000-000000000003', '44444444-0000-4000-8000-000000000001', 
+ 'Many people prefer to work from home rather than in an office. Discuss the advantages and disadvantages of remote work.', 'essay', 5);
