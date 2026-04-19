@@ -22,6 +22,7 @@ router.post('/', authMiddleware(ROLE_ADMIN), fileUploads, questionController.cre
 router.get('/section/:sectionId', authMiddleware(ROLE_USER), questionController.getBySectionId);
 router.get('/:id', authMiddleware(ROLE_USER), questionController.getById);
 router.patch('/:id', authMiddleware(ROLE_ADMIN), fileUploads, questionController.update);
+router.patch('/:id/reorder', authMiddleware(ROLE_ADMIN), questionController.reorder);
 router.delete('/:id', authMiddleware(ROLE_ADMIN), questionController.delete);
 
 export { router as questionRoutes };

@@ -8,6 +8,7 @@ const createQuestionSchema = z.object({
     questionText: z.string().min(1, 'questionText is required'),
     questionType: z.string().max(50).optional().nullable(),
     points: z.preprocess((val) => Number(val), z.number().int().optional().nullable()), // Handles formData numeric strings
+    orderIndex: z.preprocess((val) => Number(val), z.number().int().optional().nullable()),
 });
 
 const updateQuestionSchema = createQuestionSchema.partial();
@@ -80,4 +81,20 @@ export class QuestionController {
             next(error);
         }
     };
+
+    reorder = async (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
+        try {
+            const { direction } = req.body;
+            if (direction !== 'up' && direction !== 'down') {
+                return res.status(400).json({ message: "Invalid direction. Must be 'up' or 'down'." });
+            }
+            const success = await this.manageQuestions.reorder(req.params.id, direction);
+            if (!success) {
+                return res.status(404).json({ message: 'Question not found or cannot be moved in that direction' });
+            }
+            res.status(200).json({ message: 'Question reordered' });
+        } catch (error) {
+            next(error);
+        }
+    }
 }

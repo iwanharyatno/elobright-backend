@@ -38,6 +38,7 @@ export const questionsTable = pgTable('questions', {
     questionText: text('question_text').notNull(),
     questionType: varchar('question_type', { length: 50 }),
     points: integer('points').default(1),
+    orderIndex: integer('order_index'),
 });
 
 export const questionOptionsTable = pgTable('question_options', {

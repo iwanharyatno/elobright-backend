@@ -7,4 +7,5 @@ export interface IExamSectionRepository {
     update(id: string, data: Partial<Omit<ExamSection, 'id'>>): Promise<ExamSection | null>;
     delete(id: string): Promise<boolean>;
     reorder(id: string, direction: 'up' | 'down'): Promise<boolean>;
+    getMaxOrderIndex(examId: string): Promise<number>;
 }

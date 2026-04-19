@@ -19,6 +19,10 @@ export class ManageQuestions {
     }
 
     async create(data: Omit<Question, 'id'>, audioFile?: Express.Multer.File, questionAudioFile?: Express.Multer.File, imageFile?: Express.Multer.File): Promise<Question> {
+        if (data.orderIndex === undefined || data.orderIndex === null) {
+            const maxOrder = await this.questionRepository.getMaxOrderIndex(data.sectionId);
+            data.orderIndex = maxOrder + 1;
+        }
         if (audioFile) {
             data.audioUrl = `/uploads/${audioFile.filename}`;
         }
@@ -67,5 +71,9 @@ export class ManageQuestions {
             this.deleteFile(existingQuestion.imageUrl);
         }
         return this.questionRepository.delete(id);
+    }
+
+    async reorder(id: string, direction: 'up' | 'down'): Promise<boolean> {
+        return this.questionRepository.reorder(id, direction);
     }
 }

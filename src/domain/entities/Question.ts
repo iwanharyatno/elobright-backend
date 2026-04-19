@@ -8,4 +8,5 @@ export interface Question {
     questionText: string;
     questionType: string | null;
     points: number | null;
+    orderIndex: number | null;
 }
