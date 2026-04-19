@@ -15,8 +15,8 @@ export const createServer = () => {
 
   app.use(
     helmet({
-      crossOriginResourcePolicy: { policy: "cross-origin" }
-    })
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+    }),
   );
   app.use(cors());
   app.use(express.json());
@@ -24,10 +24,10 @@ export const createServer = () => {
   // Serve uploaded files statically at /uploads
   // Override Helmet's Cross-Origin-Resource-Policy so browsers on other origins
   // (e.g. a separate frontend) can load images and audio files directly.
-  app.use(
-    "/uploads",
-    express.static(path.join(__dirname, "../../../uploads"))
-  );
+  // app.use(
+  //   "/uploads",
+  //   express.static(path.join(__dirname, "../../../uploads"))
+  // );
 
   app.use("/api/auth", authRoutes);
   app.use("/api/exams", examRoutes);
