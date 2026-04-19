@@ -14,6 +14,7 @@ const questionController = new QuestionController(manageQuestions);
 
 const fileUploads = uploadMiddleware.fields([
     { name: 'audio', maxCount: 1 },
+    { name: 'questionAudio', maxCount: 1 },
     { name: 'image', maxCount: 1 }
 ]);
 

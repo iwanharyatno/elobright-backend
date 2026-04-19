@@ -20,9 +20,10 @@ export class QuestionController {
             const data = createQuestionSchema.parse(req.body);
             const files = req.files as { [fieldname: string]: Express.Multer.File[] };
             const audioFile = files?.['audio']?.[0];
+            const questionAudioFile = files?.['questionAudio']?.[0];
             const imageFile = files?.['image']?.[0];
 
-            const question = await this.manageQuestions.create(data as any, audioFile, imageFile);
+            const question = await this.manageQuestions.create(data as any, audioFile, questionAudioFile, imageFile);
             res.status(201).json({ message: 'Question created', question });
         } catch (error) {
             next(error);
@@ -55,9 +56,10 @@ export class QuestionController {
             const data = updateQuestionSchema.parse(req.body);
             const files = req.files as { [fieldname: string]: Express.Multer.File[] };
             const audioFile = files?.['audio']?.[0];
+            const questionAudioFile = files?.['questionAudio']?.[0];
             const imageFile = files?.['image']?.[0];
 
-            const question = await this.manageQuestions.update(req.params.id, data as any, audioFile, imageFile);
+            const question = await this.manageQuestions.update(req.params.id, data as any, audioFile, questionAudioFile, imageFile);
             if (!question) {
                 return res.status(404).json({ message: 'Question not found' });
             }

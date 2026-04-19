@@ -32,6 +32,7 @@ export const questionsTable = pgTable('questions', {
     id: uuid('id').primaryKey().defaultRandom(),
     sectionId: uuid('section_id').references(() => examSectionsTable.id).notNull(),
     audioUrl: text('audio_url'),
+    questionAudioUrl: text('question_audio_url'),
     imageUrl: text('image_url'),
     narrativeText: text('narrative_text'),
     questionText: text('question_text').notNull(),

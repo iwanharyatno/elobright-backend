@@ -2,6 +2,7 @@ export interface Question {
     id: string;
     sectionId: string;
     audioUrl: string | null;
+    questionAudioUrl: string | null;
     imageUrl: string | null;
     narrativeText: string | null;
     questionText: string;
