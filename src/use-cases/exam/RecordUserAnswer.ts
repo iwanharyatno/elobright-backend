@@ -3,13 +3,15 @@ import { IExamSubmissionRepository } from '../../domain/repositories/IExamSubmis
 import { IExamRepository } from '../../domain/repositories/IExamRepository';
 import { IQuestionOptionRepository } from '../../domain/repositories/IQuestionOptionRepository';
 import { UserAnswer } from '../../domain/entities/UserAnswer';
+import { IQuestionRepository } from '../../domain/repositories/IQuestionRepository';
 
 export class RecordUserAnswer {
     constructor(
         private userAnswerRepository: IUserAnswerRepository,
         private submissionRepository: IExamSubmissionRepository,
         private examRepository: IExamRepository,
-        private optionRepository: IQuestionOptionRepository
+        private optionRepository: IQuestionOptionRepository,
+        private questionRepository: IQuestionRepository
     ) { }
 
     async execute(
@@ -27,6 +29,9 @@ export class RecordUserAnswer {
 
         const exam = await this.examRepository.findById(submission.examId);
         if (!exam || !exam.durationMinutes) throw new Error('Exam details or duration missing');
+
+        const question = await this.questionRepository.findById(questionId);
+        if (!question) throw new Error('Question not found');
 
         const startTime = new Date(submission.startedAt);
         const limitTime = new Date(startTime.getTime() + exam.durationMinutes * 60000);
@@ -58,9 +63,9 @@ export class RecordUserAnswer {
 
         let scoreDelta = 0;
         if (!wasCorrect && isCorrectNow) {
-            scoreDelta = 1;
+            scoreDelta = question.points || 1;
         } else if (wasCorrect && !isCorrectNow) {
-            scoreDelta = -1;
+            scoreDelta = -(question.points || 1);
         }
 
         if (scoreDelta !== 0) {

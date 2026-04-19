@@ -4,12 +4,14 @@ import { IExamSubmissionRepository } from '../../../../src/domain/repositories/I
 import { IExamRepository } from '../../../../src/domain/repositories/IExamRepository';
 import { IQuestionOptionRepository } from '../../../../src/domain/repositories/IQuestionOptionRepository';
 import { UserAnswer } from '../../../../src/domain/entities/UserAnswer';
+import { IQuestionRepository } from '../../../../src/domain/repositories/IQuestionRepository';
 
 describe('RecordUserAnswer', () => {
     let mockUserAnswerRepository: jest.Mocked<IUserAnswerRepository>;
     let mockSubmissionRepository: jest.Mocked<IExamSubmissionRepository>;
     let mockExamRepository: jest.Mocked<IExamRepository>;
     let mockOptionRepository: jest.Mocked<IQuestionOptionRepository>;
+    let mockQuestionRepository: jest.Mocked<IQuestionRepository>;
     let useCase: RecordUserAnswer;
 
     beforeEach(() => {
@@ -40,11 +42,24 @@ describe('RecordUserAnswer', () => {
             findByQuestionId: jest.fn()
         };
 
+        mockQuestionRepository = {
+            create: jest.fn(),
+            update: jest.fn(),
+            delete: jest.fn(),
+            findById: jest.fn(),
+            findBySectionId: jest.fn()
+        };
+
+        mockQuestionRepository.findById.mockResolvedValue({
+            id: 'q-1', sectionId: 'sec-1', questionText: 'Q1', points: 1, audioUrl: null, questionType: 'mcq', imageUrl: null, narrativeText: null
+        });
+
         useCase = new RecordUserAnswer(
             mockUserAnswerRepository,
             mockSubmissionRepository,
             mockExamRepository,
-            mockOptionRepository
+            mockOptionRepository,
+            mockQuestionRepository
         );
     });
 
@@ -54,6 +69,18 @@ describe('RecordUserAnswer', () => {
         });
 
         await expect(useCase.execute('sub-1', 'q-1')).rejects.toThrow('Exam is not currently ongoing');
+    });
+
+    it('should throw an error if question is not found', async () => {
+        mockSubmissionRepository.findById.mockResolvedValue({
+            id: 'sub-1', userId: 1, examId: 'exam-1', status: 'ongoing', totalScore: 0, timezone: null, startedAt: new Date(), endTimeLimit: new Date(), submittedAt: null
+        });
+        mockExamRepository.findById.mockResolvedValue({
+            id: 'exam-1', title: 'Test Exam', type: 'IELTS', durationMinutes: 60
+        });
+        mockQuestionRepository.findById.mockResolvedValue(null);
+
+        await expect(useCase.execute('sub-1', 'q-99')).rejects.toThrow('Question not found');
     });
 
     it('should throw an error if time window is exceeded', async () => {
@@ -75,7 +102,7 @@ describe('RecordUserAnswer', () => {
         jest.useRealTimers();
     });
 
-    it('should increment score if MCQ answer is correct', async () => {
+    it('should increment score using the question points if MCQ answer is correct', async () => {
         jest.useFakeTimers();
         const mockNow = new Date('2023-01-01T10:30:00Z'); // Within 60min window
         jest.setSystemTime(mockNow);
@@ -85,6 +112,9 @@ describe('RecordUserAnswer', () => {
         });
         mockExamRepository.findById.mockResolvedValue({
             id: 'exam-1', title: 'Test Exam', type: 'IELTS', durationMinutes: 60
+        });
+        mockQuestionRepository.findById.mockResolvedValue({
+            id: 'q-1', sectionId: 'sec-1', questionText: 'Q1', points: 3, audioUrl: null, questionType: 'mcq', imageUrl: null, narrativeText: null
         });
         mockOptionRepository.findById.mockResolvedValue({
             id: 'opt-1', questionId: 'q-1', optionText: 'Correct Option', isCorrect: true
@@ -97,8 +127,9 @@ describe('RecordUserAnswer', () => {
 
         const result = await useCase.execute('sub-1', 'q-1', 'opt-1');
 
+        expect(mockQuestionRepository.findById).toHaveBeenCalledWith('q-1');
         expect(mockOptionRepository.findById).toHaveBeenCalledWith('opt-1');
-        expect(mockSubmissionRepository.incrementTotalScore).toHaveBeenCalledWith('sub-1', 1);
+        expect(mockSubmissionRepository.incrementTotalScore).toHaveBeenCalledWith('sub-1', 3);
         expect(mockUserAnswerRepository.create).toHaveBeenCalled();
         expect(result).toEqual(expectedAnswer);
 
@@ -148,6 +179,10 @@ describe('RecordUserAnswer', () => {
             id: 'exam-1', title: 'Test Exam', type: 'IELTS', durationMinutes: 60
         });
 
+        mockQuestionRepository.findById.mockResolvedValue({
+            id: 'q-1', sectionId: 'sec-1', questionText: 'Q1', points: 2, audioUrl: null, questionType: 'mcq', imageUrl: null, narrativeText: null
+        });
+
         mockOptionRepository.findById.mockImplementation(async (id: string) => {
             if (id === 'opt-correct') return { id: 'opt-correct', questionId: 'q-1', optionText: 'C', isCorrect: true };
             if (id === 'opt-wrong') return { id: 'opt-wrong', questionId: 'q-1', optionText: 'W', isCorrect: false };
@@ -171,14 +206,14 @@ describe('RecordUserAnswer', () => {
         expect(mockSubmissionRepository.incrementTotalScore).not.toHaveBeenCalled();
         mockSubmissionRepository.incrementTotalScore.mockClear();
 
-        // 2. Correct second answer (wrong -> correct) -> should +1
+        // 2. Correct second answer (wrong -> correct) -> should +2
         await useCase.execute('sub-1', 'q-1', 'opt-correct');
-        expect(mockSubmissionRepository.incrementTotalScore).toHaveBeenLastCalledWith('sub-1', 1);
+        expect(mockSubmissionRepository.incrementTotalScore).toHaveBeenLastCalledWith('sub-1', 2);
         mockSubmissionRepository.incrementTotalScore.mockClear();
 
-        // 3. Wrong again (correct -> wrong) -> should -1
+        // 3. Wrong again (correct -> wrong) -> should -2
         await useCase.execute('sub-1', 'q-1', 'opt-wrong');
-        expect(mockSubmissionRepository.incrementTotalScore).toHaveBeenLastCalledWith('sub-1', -1);
+        expect(mockSubmissionRepository.incrementTotalScore).toHaveBeenLastCalledWith('sub-1', -2);
         mockSubmissionRepository.incrementTotalScore.mockClear();
 
         // 4. Wrong again (wrong -> wrong) -> should not be called
@@ -186,9 +221,9 @@ describe('RecordUserAnswer', () => {
         expect(mockSubmissionRepository.incrementTotalScore).not.toHaveBeenCalled();
         mockSubmissionRepository.incrementTotalScore.mockClear();
 
-        // 5. Correct then (wrong -> correct) -> should +1
+        // 5. Correct then (wrong -> correct) -> should +2
         await useCase.execute('sub-1', 'q-1', 'opt-correct');
-        expect(mockSubmissionRepository.incrementTotalScore).toHaveBeenLastCalledWith('sub-1', 1);
+        expect(mockSubmissionRepository.incrementTotalScore).toHaveBeenLastCalledWith('sub-1', 2);
         mockSubmissionRepository.incrementTotalScore.mockClear();
 
         // 6. Correct again (correct -> correct) -> should not be called

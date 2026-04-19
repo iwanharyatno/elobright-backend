@@ -9,6 +9,7 @@ import { DrizzleExamRepository } from '../../../interface-adapters/repositories/
 import { DrizzleQuestionOptionRepository } from '../../../interface-adapters/repositories/DrizzleQuestionOptionRepository';
 
 import { authMiddleware, ROLE_USER } from '../middleware/authMiddleware';
+import { DrizzleQuestionRepository } from '../../../interface-adapters/repositories/DrizzleQuestionRepository';
 
 const router = Router();
 
@@ -17,6 +18,7 @@ const submissionRepository = new DrizzleExamSubmissionRepository();
 const userAnswerRepository = new DrizzleUserAnswerRepository();
 const examRepository = new DrizzleExamRepository();
 const optionRepository = new DrizzleQuestionOptionRepository();
+const questionRepository = new DrizzleQuestionRepository();
 
 // Initialize use cases
 const manageExamSessions = new ManageExamSessions(submissionRepository, examRepository);
@@ -24,7 +26,8 @@ const recordUserAnswer = new RecordUserAnswer(
     userAnswerRepository,
     submissionRepository,
     examRepository,
-    optionRepository
+    optionRepository,
+    questionRepository
 );
 
 // Initialize controller
