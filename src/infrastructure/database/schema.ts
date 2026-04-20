@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, timestamp, uuid, integer, text, boolean, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, timestamp, uuid, integer, text, boolean, pgEnum, bigint, jsonb } from 'drizzle-orm/pg-core';
 
 export const roleEnum = pgEnum('role', ['superadmin', 'admin', 'reviewer', 'moderator', 'user']);
 
@@ -67,4 +67,16 @@ export const userAnswersTable = pgTable('user_answers', {
     selectedOptionId: uuid('selected_option_id').references(() => questionOptionsTable.id),
     textResponse: text('text_response'),
     audioResponseUrl: text('audio_response_url'),
+});
+
+export const audioTelemetryTable = pgTable('audio_telemetry', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id').notNull(),
+    examSessionId: text('exam_session_id').notNull(),
+    configuration: text('configuration'),
+    audioUrl: text('audio_url'),
+    totalSize: integer('total_size'),
+    timestamp: bigint('timestamp', { mode: 'number' }),
+    metrics: jsonb('metrics'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
 });

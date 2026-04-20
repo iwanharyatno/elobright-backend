@@ -8,6 +8,7 @@ import { examSectionRoutes } from "./routes/examSectionRoutes";
 import { questionRoutes } from "./routes/questionRoutes";
 import { questionOptionRoutes } from "./routes/questionOptionRoutes";
 import { examSubmissionRoutes } from "./routes/examSubmissionRoutes";
+import { audioTelemetryRoutes } from "./routes/audioTelemetryRoutes";
 import { errorHandler } from "./middleware/errorHandler";
 
 export const createServer = () => {
@@ -35,6 +36,7 @@ export const createServer = () => {
   app.use("/api/questions", questionRoutes);
   app.use("/api/question-options", questionOptionRoutes);
   app.use("/api/exam-sessions", examSubmissionRoutes);
+  app.use("/api/audio-telemetry", audioTelemetryRoutes);
 
   // Error Handling Middlewareck
   app.get("/health", (req, res) => {
