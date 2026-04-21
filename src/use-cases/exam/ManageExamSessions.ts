@@ -21,7 +21,7 @@ export class ManageExamSessions {
             const now = new Date();
             if (ongoingSession.endTimeLimit && now > new Date(ongoingSession.endTimeLimit)) {
                 await this.submissionRepository.update(ongoingSession.id, {
-                    status: 'submitted',
+                    status: 'expired',
                     ...(timezone && { timezone }),
                     submittedAt: now
                 });
@@ -54,6 +54,9 @@ export class ManageExamSessions {
         const submission = await this.submissionRepository.findById(submissionId);
         if (!submission) return null;
         const now = new Date();
+        if (submission.endTimeLimit && now > new Date(submission.endTimeLimit)) {
+            throw new Error('Time window exceeded');
+        }
 
         return this.submissionRepository.update(submissionId, {
             status: 'submitted',
