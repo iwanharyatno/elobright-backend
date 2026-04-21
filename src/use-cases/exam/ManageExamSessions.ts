@@ -17,9 +17,19 @@ export class ManageExamSessions {
         const existingSubmissions = await this.submissionRepository.findByUserAndExam(userId, examId);
         const ongoingSession = existingSubmissions.find(s => s.status === 'ongoing');
         if (ongoingSession) {
+            // Auto-close stale sessions so users are not permanently blocked from restarting.
+            const now = new Date();
+            if (ongoingSession.endTimeLimit && now > new Date(ongoingSession.endTimeLimit)) {
+                await this.submissionRepository.update(ongoingSession.id, {
+                    status: 'submitted',
+                    ...(timezone && { timezone }),
+                    submittedAt: now
+                });
+            } else {
             const error = new Error('Ongoing session already exists') as any;
             error.session = ongoingSession;
             throw error;
+            }
         }
 
         const startedAt = new Date();
@@ -43,11 +53,7 @@ export class ManageExamSessions {
     async finishExam(submissionId: string, timezone?: string): Promise<ExamSubmission | null> {
         const submission = await this.submissionRepository.findById(submissionId);
         if (!submission) return null;
-
         const now = new Date();
-        if (submission.endTimeLimit && now > submission.endTimeLimit) {
-            throw new Error('Time window exceeded');
-        }
 
         return this.submissionRepository.update(submissionId, {
             status: 'submitted',
