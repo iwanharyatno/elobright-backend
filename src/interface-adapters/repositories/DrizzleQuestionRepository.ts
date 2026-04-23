@@ -2,7 +2,7 @@ import { IQuestionRepository } from '../../domain/repositories/IQuestionReposito
 import { Question } from '../../domain/entities/Question';
 import { db } from '../../infrastructure/database/db';
 import { questionsTable } from '../../infrastructure/database/schema';
-import { eq, max } from 'drizzle-orm';
+import { eq, max, and } from 'drizzle-orm';
 
 export class DrizzleQuestionRepository implements IQuestionRepository {
     async create(data: Omit<Question, 'id'>): Promise<Question> {
@@ -18,7 +18,12 @@ export class DrizzleQuestionRepository implements IQuestionRepository {
     async findBySectionId(sectionId: string): Promise<Question[]> {
         const questions = await db.select()
             .from(questionsTable)
-            .where(eq(questionsTable.sectionId, sectionId))
+            .where(
+                and(
+                    eq(questionsTable.sectionId, sectionId),
+                    eq(questionsTable.isActive, true)
+                )
+            )
             .orderBy(questionsTable.orderIndex);
         return questions as Question[];
     }

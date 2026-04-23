@@ -19,9 +19,15 @@ export class DrizzleUserAnswerRepository implements IUserAnswerRepository {
         return updatedAnswer as UserAnswer;
     }
 
-    async findBySubmissionAndQuestion(submissionId: string, questionId: string): Promise<UserAnswer | null> {
+    async findBySectionSubmissionAndQuestion(sectionSubmissionId: string, questionId: string): Promise<UserAnswer | null> {
         const [answer] = await db.select().from(userAnswersTable)
-            .where(and(eq(userAnswersTable.submissionId, submissionId), eq(userAnswersTable.questionId, questionId)));
+            .where(and(eq(userAnswersTable.sectionSubmissionId, sectionSubmissionId), eq(userAnswersTable.questionId, questionId)));
         return (answer as UserAnswer) || null;
+    }
+
+    async findBySectionSubmissionId(sectionSubmissionId: string): Promise<UserAnswer[]> {
+        const answers = await db.select().from(userAnswersTable)
+            .where(eq(userAnswersTable.sectionSubmissionId, sectionSubmissionId));
+        return answers as UserAnswer[];
     }
 }

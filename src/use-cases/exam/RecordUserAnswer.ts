@@ -4,40 +4,38 @@ import { IExamRepository } from '../../domain/repositories/IExamRepository';
 import { IQuestionOptionRepository } from '../../domain/repositories/IQuestionOptionRepository';
 import { UserAnswer } from '../../domain/entities/UserAnswer';
 import { IQuestionRepository } from '../../domain/repositories/IQuestionRepository';
+import { IExamSectionSubmissionRepository } from '../../domain/repositories/IExamSectionSubmissionRepository';
 
 export class RecordUserAnswer {
     constructor(
         private userAnswerRepository: IUserAnswerRepository,
-        private submissionRepository: IExamSubmissionRepository,
-        private examRepository: IExamRepository,
+        private sectionSubmissionRepository: IExamSectionSubmissionRepository,
         private optionRepository: IQuestionOptionRepository,
         private questionRepository: IQuestionRepository
     ) { }
 
     async execute(
-        submissionId: string,
+        sectionSubmissionId: string,
         questionId: string,
         selectedOptionId?: string,
         textResponse?: string,
         audioFile?: Express.Multer.File
     ): Promise<UserAnswer> {
-        // 1. Fetch submission and calculate duration limit
-        const submission = await this.submissionRepository.findById(submissionId);
-        if (!submission) throw new Error('Submission not found');
-        if (submission.status !== 'ongoing') throw new Error('Exam is not currently ongoing');
-        if (!submission.startedAt) throw new Error('Exam start time is missing');
-
-        const exam = await this.examRepository.findById(submission.examId);
-        if (!exam || !exam.durationMinutes) throw new Error('Exam details or duration missing');
+        // 1. Fetch section submission and validate timing
+        const sectionSubmission = await this.sectionSubmissionRepository.findById(sectionSubmissionId);
+        if (!sectionSubmission) throw new Error('Section submission not found');
+        if (sectionSubmission.status !== 'ongoing') throw new Error('Section is not currently ongoing');
+        if (!sectionSubmission.startedAt) throw new Error('Section start time is missing');
 
         const question = await this.questionRepository.findById(questionId);
         if (!question) throw new Error('Question not found');
 
-        const startTime = new Date(submission.startedAt);
-        const limitTime = new Date(startTime.getTime() + exam.durationMinutes * 60000);
+        if (question.sectionId !== sectionSubmission.examSectionId) {
+            throw new Error('Question does not belong to this section');
+        }
 
-        if (new Date() > limitTime) {
-            throw new Error('Time window exceeded'); // Treat as Bad Request later
+        if (sectionSubmission.endTimeLimit && new Date() > sectionSubmission.endTimeLimit) {
+            throw new Error('Time window exceeded');
         }
 
         // 2. Prepare audio URL
@@ -47,7 +45,7 @@ export class RecordUserAnswer {
         }
 
         // 3. Handle scoring for MCQ with Upsert
-        const existingAnswer = await this.userAnswerRepository.findBySubmissionAndQuestion(submissionId, questionId);
+        const existingAnswer = await this.userAnswerRepository.findBySectionSubmissionAndQuestion(sectionSubmissionId, questionId);
 
         let wasCorrect = false;
         if (existingAnswer?.selectedOptionId) {
@@ -69,7 +67,7 @@ export class RecordUserAnswer {
         }
 
         if (scoreDelta !== 0) {
-            await this.submissionRepository.incrementTotalScore(submissionId, scoreDelta);
+            await this.sectionSubmissionRepository.incrementTotalScore(sectionSubmissionId, scoreDelta);
         }
 
         // 4. Record or update answer
@@ -82,7 +80,7 @@ export class RecordUserAnswer {
         }
 
         return this.userAnswerRepository.create({
-            submissionId,
+            sectionSubmissionId,
             questionId,
             selectedOptionId: selectedOptionId || null,
             textResponse: textResponse || null,

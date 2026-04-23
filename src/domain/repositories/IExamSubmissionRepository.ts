@@ -5,5 +5,5 @@ export interface IExamSubmissionRepository {
     update(id: string, data: Partial<Omit<ExamSubmission, 'id'>>): Promise<ExamSubmission | null>;
     findById(id: string): Promise<ExamSubmission | null>;
     findByUserAndExam(userId: number, examId: string): Promise<ExamSubmission[]>;
-    incrementTotalScore(id: string, amount: number): Promise<ExamSubmission | null>;
+    findByUserId(userId: number): Promise<ExamSubmission[]>;
 }

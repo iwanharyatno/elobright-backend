@@ -9,4 +9,5 @@ export interface Question {
     questionType: string | null;
     points: number | null;
     orderIndex: number | null;
+    isActive: boolean;
 }

@@ -4,4 +4,5 @@ export interface ExamSection {
     title: string | null;
     instructions: string | null;
     orderIndex: number | null;
+    durationMinutes: number;
 }

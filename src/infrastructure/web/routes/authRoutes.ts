@@ -4,11 +4,14 @@ import { RegisterUser } from '../../../use-cases/auth/RegisterUser';
 import { LoginUser } from '../../../use-cases/auth/LoginUser';
 import { DrizzleUserRepository } from '../../../interface-adapters/repositories/DrizzleUserRepository';
 
+import { DrizzleStudentRepository } from '../../../interface-adapters/repositories/DrizzleStudentRepository';
+
 const router = Router();
 
 // Dependency Injection Setup
 const userRepository = new DrizzleUserRepository();
-const registerUser = new RegisterUser(userRepository);
+const studentRepository = new DrizzleStudentRepository();
+const registerUser = new RegisterUser(userRepository, studentRepository);
 const loginUser = new LoginUser(userRepository);
 const authController = new AuthController(registerUser, loginUser);
 

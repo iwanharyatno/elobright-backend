@@ -1,6 +1,6 @@
 export interface UserAnswer {
     id: string;
-    submissionId: string;
+    sectionSubmissionId: string;
     questionId: string;
     selectedOptionId: string | null;
     textResponse: string | null;

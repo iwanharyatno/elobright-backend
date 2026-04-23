@@ -1,7 +1,7 @@
 import { IExamSubmissionRepository } from '../../domain/repositories/IExamSubmissionRepository';
 import { ExamSubmission } from '../../domain/entities/ExamSubmission';
 import { db } from '../../infrastructure/database/db';
-import { examSubmissionsTable } from '../../infrastructure/database/schema';
+import { examSubmissionsTable, examsTable } from '../../infrastructure/database/schema';
 import { eq, and, sql } from 'drizzle-orm';
 
 export class DrizzleExamSubmissionRepository implements IExamSubmissionRepository {
@@ -29,14 +29,18 @@ export class DrizzleExamSubmissionRepository implements IExamSubmissionRepositor
         return submissions as ExamSubmission[];
     }
 
-    async incrementTotalScore(id: string, amount: number): Promise<ExamSubmission | null> {
-        const [updatedSubmission] = await db.update(examSubmissionsTable)
-            .set({
-                totalScore: sql`${examSubmissionsTable.totalScore} + ${amount}`
-            })
-            .where(eq(examSubmissionsTable.id, id))
-            .returning();
-
-        return (updatedSubmission as ExamSubmission) || null;
+    async findByUserId(userId: number): Promise<ExamSubmission[]> {
+        const results = await db.select({
+            submission: examSubmissionsTable,
+            exam: examsTable
+        }).from(examSubmissionsTable)
+            .leftJoin(examsTable, eq(examSubmissionsTable.examId, examsTable.id))
+            .where(eq(examSubmissionsTable.userId, userId));
+            
+        return results.map(row => ({
+            ...row.submission,
+            exam: row.exam || undefined
+        })) as ExamSubmission[];
     }
+
 }

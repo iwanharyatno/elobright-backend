@@ -6,7 +6,7 @@ const createExamSectionSchema = z.object({
     examId: z.string().uuid(),
     title: z.string().max(100).optional().nullable(),
     instructions: z.string().optional().nullable(),
-    orderIndex: z.number().int().optional().nullable(),
+    durationMinutes: z.number().int(),
 });
 
 const updateExamSectionSchema = createExamSectionSchema.partial();
