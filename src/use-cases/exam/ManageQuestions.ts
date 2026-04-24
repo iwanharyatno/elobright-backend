@@ -28,7 +28,7 @@ export class ManageQuestions {
       const maxOrder = await this.questionRepository.getMaxOrderIndex(
         data.sectionId,
       );
-      data.orderIndex = Number.isInteger(maxOrder) ? maxOrder + 1 : 0;
+      data.orderIndex = maxOrder + 1;
     }
     if (audioFile) {
       data.audioUrl = `/uploads/${audioFile.filename}`;
