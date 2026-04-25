@@ -29,7 +29,28 @@ export class ManageExamSessions {
             const error = new Error('Ongoing session already exists') as any;
 
             // Retrieve the latest examSectionSubmission
-            const latestSectionSession = await this.sectionSubmissionRepository.findLatestBySubmissionId(ongoingSession.id);
+            let latestSectionSession = await this.sectionSubmissionRepository.findLatestBySubmissionId(ongoingSession.id);
+
+            // If no section session exists yet, auto-create one for the first section
+            if (!latestSectionSession) {
+                const sections = await this.sectionRepository.findByExamId(examId);
+                if (sections.length === 0) {
+                    throw new Error('Exam has no sections');
+                }
+                const firstSection = sections[0];
+
+                latestSectionSession = await this.sectionSubmissionRepository.create({
+                    submissionId: ongoingSession.id,
+                    examSectionId: firstSection.id,
+                    status: 'ongoing',
+                    totalScore: 0,
+                    timezone: timezone || null,
+                    startedAt: new Date(),
+                    endTimeLimit: new Date(Date.now() + (firstSection.durationMinutes || 0) * 60000),
+                    submittedAt: null
+                });
+            }
+
             error.session = {
                 ...ongoingSession,
                 currentSectionSession: latestSectionSession
