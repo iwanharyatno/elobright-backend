@@ -1,4 +1,5 @@
 import { Exam } from './Exam';
+import { ExamSectionSubmission } from './ExamSectionSubmission';
 
 export interface ExamSubmission {
     id: string;
@@ -9,4 +10,5 @@ export interface ExamSubmission {
     startedAt: Date | null;
     submittedAt: Date | null;
     exam?: Exam;
+    examSectionSubmissions?: ExamSectionSubmission[];
 }
