@@ -16,6 +16,11 @@ export class DrizzleUserRepository implements IUserRepository {
         return results[0] as User;
     }
 
+    async findAll(): Promise<User[]> {
+        const results = await db.select().from(usersTable);
+        return results as User[];
+    }
+
     async create(userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<User> {
         const results = await db
             .insert(usersTable)
