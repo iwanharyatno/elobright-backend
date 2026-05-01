@@ -26,15 +26,6 @@ export class ManageExamSessions {
         const existingSubmissions = await this.submissionRepository.findByUserAndExam(userId, examId);
         const ongoingSession = existingSubmissions.find(s => s.status === 'ongoing');
         if (ongoingSession) {
-            // Auto-close stale sessions so users are not permanently blocked from restarting.
-            const now = new Date();
-            if (ongoingSession.endTimeLimit && now > new Date(ongoingSession.endTimeLimit)) {
-                await this.submissionRepository.update(ongoingSession.id, {
-                    status: 'expired',
-                    ...(timezone && { timezone }),
-                    submittedAt: now
-                });
-            } else {
             const error = new Error('Ongoing session already exists') as any;
 
             // Retrieve the latest examSectionSubmission
@@ -84,7 +75,6 @@ export class ManageExamSessions {
             }
 
             throw error;
-            }
         }
 
         const startedAt = new Date();
