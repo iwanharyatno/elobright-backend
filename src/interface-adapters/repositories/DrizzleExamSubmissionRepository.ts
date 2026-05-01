@@ -62,4 +62,36 @@ export class DrizzleExamSubmissionRepository implements IExamSubmissionRepositor
         return Array.from(submissionMap.values());
     }
 
+    async findAllWithDetails(): Promise<ExamSubmission[]> {
+        const results = await db.select({
+            submission: examSubmissionsTable,
+            exam: examsTable,
+            sectionSubmission: examSectionSubmissionsTable,
+            section: examSectionsTable,
+        }).from(examSubmissionsTable)
+            .leftJoin(examsTable, eq(examSubmissionsTable.examId, examsTable.id))
+            .leftJoin(examSectionSubmissionsTable, eq(examSubmissionsTable.id, examSectionSubmissionsTable.submissionId))
+            .leftJoin(examSectionsTable, eq(examSectionSubmissionsTable.examSectionId, examSectionsTable.id));
+
+        const submissionMap = new Map<string, ExamSubmission>();
+        for (const row of results) {
+            const id = row.submission.id;
+            if (!submissionMap.has(id)) {
+                submissionMap.set(id, {
+                    ...row.submission,
+                    exam: row.exam || undefined,
+                    examSectionSubmissions: [],
+                });
+            }
+            if (row.sectionSubmission) {
+                submissionMap.get(id)!.examSectionSubmissions!.push({
+                    ...row.sectionSubmission,
+                    section: row.section || undefined,
+                } as any);
+            }
+        }
+
+        return Array.from(submissionMap.values());
+    }
+
 }

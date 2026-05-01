@@ -5,4 +5,5 @@ export interface IUserAnswerRepository {
     update(id: string, data: Partial<Omit<UserAnswer, 'id'>>): Promise<UserAnswer>;
     findBySectionSubmissionAndQuestion(sectionSubmissionId: string, questionId: string): Promise<UserAnswer | null>;
     findBySectionSubmissionId(sectionSubmissionId: string): Promise<UserAnswer[]>;
+    findBySectionSubmissionIds(sectionSubmissionIds: string[]): Promise<UserAnswer[]>;
 }

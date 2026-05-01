@@ -2,7 +2,7 @@ import { IQuestionOptionRepository } from '../../domain/repositories/IQuestionOp
 import { QuestionOption } from '../../domain/entities/QuestionOption';
 import { db } from '../../infrastructure/database/db';
 import { questionOptionsTable } from '../../infrastructure/database/schema';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 
 export class DrizzleQuestionOptionRepository implements IQuestionOptionRepository {
     async create(data: Omit<QuestionOption, 'id'>): Promise<QuestionOption> {
@@ -19,6 +19,22 @@ export class DrizzleQuestionOptionRepository implements IQuestionOptionRepositor
         const options = await db.select()
             .from(questionOptionsTable)
             .where(eq(questionOptionsTable.questionId, questionId));
+        return options as QuestionOption[];
+    }
+
+    async findByQuestionIds(questionIds: string[]): Promise<QuestionOption[]> {
+        if (questionIds.length === 0) return [];
+        const options = await db.select()
+            .from(questionOptionsTable)
+            .where(inArray(questionOptionsTable.questionId, questionIds));
+        return options as QuestionOption[];
+    }
+
+    async findByIds(ids: string[]): Promise<QuestionOption[]> {
+        if (ids.length === 0) return [];
+        const options = await db.select()
+            .from(questionOptionsTable)
+            .where(inArray(questionOptionsTable.id, ids));
         return options as QuestionOption[];
     }
 

@@ -3,19 +3,21 @@ import { ExamSubmissionController } from '../../../interface-adapters/controller
 import { uploadMiddleware } from '../middleware/uploadMiddleware';
 import { ManageExamSessions } from '../../../use-cases/exam/ManageExamSessions';
 import { RecordUserAnswer } from '../../../use-cases/exam/RecordUserAnswer';
+import { GetExamReport } from '../../../use-cases/exam/GetExamReport';
 import { DrizzleExamSubmissionRepository } from '../../../interface-adapters/repositories/DrizzleExamSubmissionRepository';
 import { DrizzleUserAnswerRepository } from '../../../interface-adapters/repositories/DrizzleUserAnswerRepository';
 import { DrizzleExamRepository } from '../../../interface-adapters/repositories/DrizzleExamRepository';
 import { DrizzleQuestionOptionRepository } from '../../../interface-adapters/repositories/DrizzleQuestionOptionRepository';
 
-import { authMiddleware, ROLE_USER } from '../middleware/authMiddleware';
+import { authMiddleware, ROLE_USER, ROLE_ADMIN } from '../middleware/authMiddleware';
 import { DrizzleQuestionRepository } from '../../../interface-adapters/repositories/DrizzleQuestionRepository';
 import { DrizzleExamSectionSubmissionRepository } from '../../../interface-adapters/repositories/DrizzleExamSectionSubmissionRepository';
 import { DrizzleExamSectionRepository } from '../../../interface-adapters/repositories/DrizzleExamSectionRepository';
+import { DrizzleUserRepository } from '../../../interface-adapters/repositories/DrizzleUserRepository';
+import { DrizzleStudentRepository } from '../../../interface-adapters/repositories/DrizzleStudentRepository';
 
 const router = Router();
 
-// Initialize repositories
 const submissionRepository = new DrizzleExamSubmissionRepository();
 const userAnswerRepository = new DrizzleUserAnswerRepository();
 const examRepository = new DrizzleExamRepository();
@@ -23,8 +25,9 @@ const optionRepository = new DrizzleQuestionOptionRepository();
 const questionRepository = new DrizzleQuestionRepository();
 const sectionSubmissionRepository = new DrizzleExamSectionSubmissionRepository();
 const sectionRepository = new DrizzleExamSectionRepository();
+const userRepository = new DrizzleUserRepository();
+const studentRepository = new DrizzleStudentRepository();
 
-// Initialize use cases
 const manageExamSessions = new ManageExamSessions(
     submissionRepository, 
     examRepository, 
@@ -39,11 +42,18 @@ const recordUserAnswer = new RecordUserAnswer(
     optionRepository,
     questionRepository
 );
+const getExamReport = new GetExamReport(
+    userRepository,
+    studentRepository,
+    submissionRepository,
+    userAnswerRepository,
+    questionRepository,
+    optionRepository,
+);
 
-// Initialize controller
-const controller = new ExamSubmissionController(manageExamSessions, recordUserAnswer);
+const controller = new ExamSubmissionController(manageExamSessions, recordUserAnswer, getExamReport);
 
-// Routes
+router.get('/report', authMiddleware(ROLE_ADMIN), controller.getReport);
 router.get('/history', authMiddleware(ROLE_USER), controller.getHistory);
 router.post('/start', authMiddleware(ROLE_USER), controller.start);
 router.post('/:id/finish', authMiddleware(ROLE_USER), controller.finish);

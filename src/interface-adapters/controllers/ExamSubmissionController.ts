@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { ManageExamSessions } from "../../use-cases/exam/ManageExamSessions";
 import { RecordUserAnswer } from "../../use-cases/exam/RecordUserAnswer";
+import { GetExamReport } from "../../use-cases/exam/GetExamReport";
 import { AuthRequest } from "../../infrastructure/web/middleware/authMiddleware";
 
 const startSchema = z.object({
@@ -45,6 +46,7 @@ export class ExamSubmissionController {
   constructor(
     private manageExamSessions: ManageExamSessions,
     private recordUserAnswer: RecordUserAnswer,
+    private getExamReport: GetExamReport,
   ) {}
 
   start = async (req: Request, res: Response, next: NextFunction) => {
@@ -236,6 +238,15 @@ export class ExamSubmissionController {
           authReq.user.userId,
         );
       res.status(200).json(history);
+    } catch (error: any) {
+      next(error);
+    }
+  };
+
+  getReport = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = await this.getExamReport.execute();
+      res.status(200).json({ data });
     } catch (error: any) {
       next(error);
     }
