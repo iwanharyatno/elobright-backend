@@ -6,4 +6,6 @@ export interface IQuestionRepository {
     findBySectionId(sectionId: string): Promise<Question[]>;
     update(id: string, data: Partial<Omit<Question, 'id'>>): Promise<Question | null>;
     delete(id: string): Promise<boolean>;
+    reorder(id: string, direction: 'up' | 'down'): Promise<boolean>;
+    getMaxOrderIndex(sectionId: string): Promise<number>;
 }

@@ -8,6 +8,17 @@ const registerSchema = z.object({
     password: z.string().min(6),
     full_name: z.string(),
     phone_number: z.string(),
+    type: z.enum(['user', 'student']).default('user'),
+    student_id: z.string().optional(),
+    degree_program: z.string().optional()
+}).refine(data => {
+    if (data.type === 'student' && !data.student_id) {
+        return false;
+    }
+    return true;
+}, {
+    message: "student_id is required when type is student",
+    path: ["student_id"]
 });
 
 const loginSchema = z.object({
@@ -23,8 +34,8 @@ export class AuthController {
 
     register = async (req: Request, res: Response, next: NextFunction) => {
         try {
-            const { email, password, full_name, phone_number } = registerSchema.parse(req.body);
-            const user = await this.registerUserUseCase.execute(email, password, full_name, phone_number);
+            const { email, password, full_name, phone_number, type, student_id, degree_program } = registerSchema.parse(req.body);
+            const user = await this.registerUserUseCase.execute(email, password, full_name, phone_number, type, student_id, degree_program);
             res.status(201).json({ message: 'User registered successfully', user });
         } catch (error) {
             next(error);

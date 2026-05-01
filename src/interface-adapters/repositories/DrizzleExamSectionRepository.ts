@@ -2,7 +2,7 @@ import { IExamSectionRepository } from '../../domain/repositories/IExamSectionRe
 import { ExamSection } from '../../domain/entities/ExamSection';
 import { db } from '../../infrastructure/database/db';
 import { examSectionsTable } from '../../infrastructure/database/schema';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, sql, max } from 'drizzle-orm';
 
 export class DrizzleExamSectionRepository implements IExamSectionRepository {
     async create(data: Omit<ExamSection, 'id'>): Promise<ExamSection> {
@@ -67,5 +67,12 @@ export class DrizzleExamSectionRepository implements IExamSectionRepository {
         });
 
         return true;
+    }
+
+    async getMaxOrderIndex(examId: string): Promise<number> {
+        const [result] = await db.select({ maxValue: max(examSectionsTable.orderIndex) })
+            .from(examSectionsTable)
+            .where(eq(examSectionsTable.examId, examId));
+        return result?.maxValue ?? 0;
     }
 }

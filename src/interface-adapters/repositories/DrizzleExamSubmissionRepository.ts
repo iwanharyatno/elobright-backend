@@ -1,7 +1,7 @@
 import { IExamSubmissionRepository } from '../../domain/repositories/IExamSubmissionRepository';
 import { ExamSubmission } from '../../domain/entities/ExamSubmission';
 import { db } from '../../infrastructure/database/db';
-import { examSubmissionsTable } from '../../infrastructure/database/schema';
+import { examSubmissionsTable, examsTable, examSectionSubmissionsTable, examSectionsTable } from '../../infrastructure/database/schema';
 import { eq, and, sql } from 'drizzle-orm';
 
 export class DrizzleExamSubmissionRepository implements IExamSubmissionRepository {
@@ -29,14 +29,37 @@ export class DrizzleExamSubmissionRepository implements IExamSubmissionRepositor
         return submissions as ExamSubmission[];
     }
 
-    async incrementTotalScore(id: string, amount: number): Promise<ExamSubmission | null> {
-        const [updatedSubmission] = await db.update(examSubmissionsTable)
-            .set({
-                totalScore: sql`${examSubmissionsTable.totalScore} + ${amount}`
-            })
-            .where(eq(examSubmissionsTable.id, id))
-            .returning();
+    async findByUserId(userId: number): Promise<ExamSubmission[]> {
+        const results = await db.select({
+            submission: examSubmissionsTable,
+            exam: examsTable,
+            sectionSubmission: examSectionSubmissionsTable,
+            section: examSectionsTable,
+        }).from(examSubmissionsTable)
+            .leftJoin(examsTable, eq(examSubmissionsTable.examId, examsTable.id))
+            .leftJoin(examSectionSubmissionsTable, eq(examSubmissionsTable.id, examSectionSubmissionsTable.submissionId))
+            .leftJoin(examSectionsTable, eq(examSectionSubmissionsTable.examSectionId, examSectionsTable.id))
+            .where(eq(examSubmissionsTable.userId, userId));
 
-        return (updatedSubmission as ExamSubmission) || null;
+        const submissionMap = new Map<string, ExamSubmission>();
+        for (const row of results) {
+            const id = row.submission.id;
+            if (!submissionMap.has(id)) {
+                submissionMap.set(id, {
+                    ...row.submission,
+                    exam: row.exam || undefined,
+                    examSectionSubmissions: [],
+                });
+            }
+            if (row.sectionSubmission) {
+                submissionMap.get(id)!.examSectionSubmissions!.push({
+                    ...row.sectionSubmission,
+                    section: row.section || undefined,
+                } as any);
+            }
+        }
+
+        return Array.from(submissionMap.values());
     }
+
 }

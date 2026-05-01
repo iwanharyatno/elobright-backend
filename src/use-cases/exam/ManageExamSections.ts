@@ -5,8 +5,10 @@ export class ManageExamSections {
     constructor(private sectionRepository: IExamSectionRepository) { }
 
     async create(data: Omit<ExamSection, 'id'>): Promise<ExamSection> {
-        // If orderIndex is not provided, we could optionally calculate max orderIndex + 1 here.
-        // For simplicity, we just pass the data to the repository.
+        if (data.orderIndex === undefined || data.orderIndex === null) {
+            const maxOrder = await this.sectionRepository.getMaxOrderIndex(data.examId);
+            data.orderIndex = maxOrder + 1;
+        }
         return this.sectionRepository.create(data);
     }
 

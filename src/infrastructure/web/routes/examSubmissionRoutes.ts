@@ -9,6 +9,9 @@ import { DrizzleExamRepository } from '../../../interface-adapters/repositories/
 import { DrizzleQuestionOptionRepository } from '../../../interface-adapters/repositories/DrizzleQuestionOptionRepository';
 
 import { authMiddleware, ROLE_USER } from '../middleware/authMiddleware';
+import { DrizzleQuestionRepository } from '../../../interface-adapters/repositories/DrizzleQuestionRepository';
+import { DrizzleExamSectionSubmissionRepository } from '../../../interface-adapters/repositories/DrizzleExamSectionSubmissionRepository';
+import { DrizzleExamSectionRepository } from '../../../interface-adapters/repositories/DrizzleExamSectionRepository';
 
 const router = Router();
 
@@ -17,22 +20,34 @@ const submissionRepository = new DrizzleExamSubmissionRepository();
 const userAnswerRepository = new DrizzleUserAnswerRepository();
 const examRepository = new DrizzleExamRepository();
 const optionRepository = new DrizzleQuestionOptionRepository();
+const questionRepository = new DrizzleQuestionRepository();
+const sectionSubmissionRepository = new DrizzleExamSectionSubmissionRepository();
+const sectionRepository = new DrizzleExamSectionRepository();
 
 // Initialize use cases
-const manageExamSessions = new ManageExamSessions(submissionRepository, examRepository);
+const manageExamSessions = new ManageExamSessions(
+    submissionRepository, 
+    examRepository, 
+    userAnswerRepository, 
+    questionRepository,
+    sectionSubmissionRepository,
+    sectionRepository
+);
 const recordUserAnswer = new RecordUserAnswer(
     userAnswerRepository,
-    submissionRepository,
-    examRepository,
-    optionRepository
+    sectionSubmissionRepository,
+    optionRepository,
+    questionRepository
 );
 
 // Initialize controller
 const controller = new ExamSubmissionController(manageExamSessions, recordUserAnswer);
 
 // Routes
+router.get('/history', authMiddleware(ROLE_USER), controller.getHistory);
 router.post('/start', authMiddleware(ROLE_USER), controller.start);
 router.post('/:id/finish', authMiddleware(ROLE_USER), controller.finish);
+router.post('/sections/:id/finish', authMiddleware(ROLE_USER), controller.finishSection);
 router.post('/:id/answers', authMiddleware(ROLE_USER), uploadMiddleware.single('audio'), controller.recordAnswer);
 
 export const examSubmissionRoutes = router;

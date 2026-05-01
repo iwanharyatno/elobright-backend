@@ -8,6 +8,7 @@ import { examSectionRoutes } from "./routes/examSectionRoutes";
 import { questionRoutes } from "./routes/questionRoutes";
 import { questionOptionRoutes } from "./routes/questionOptionRoutes";
 import { examSubmissionRoutes } from "./routes/examSubmissionRoutes";
+import { audioTelemetryRoutes } from "./routes/audioTelemetryRoutes";
 import { errorHandler } from "./middleware/errorHandler";
 
 export const createServer = () => {
@@ -15,8 +16,8 @@ export const createServer = () => {
 
   app.use(
     helmet({
-      crossOriginResourcePolicy: { policy: "cross-origin" }
-    })
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+    }),
   );
   app.use(cors());
   app.use(express.json());
@@ -24,10 +25,10 @@ export const createServer = () => {
   // Serve uploaded files statically at /uploads
   // Override Helmet's Cross-Origin-Resource-Policy so browsers on other origins
   // (e.g. a separate frontend) can load images and audio files directly.
-  app.use(
-    "/uploads",
-    express.static(path.join(__dirname, "../../../uploads"))
-  );
+  // app.use(
+  //   "/uploads",
+  //   express.static(path.join(__dirname, "../../../uploads"))
+  // );
 
   app.use("/api/auth", authRoutes);
   app.use("/api/exams", examRoutes);
@@ -35,6 +36,7 @@ export const createServer = () => {
   app.use("/api/questions", questionRoutes);
   app.use("/api/question-options", questionOptionRoutes);
   app.use("/api/exam-sessions", examSubmissionRoutes);
+  app.use("/api/audio-telemetry", audioTelemetryRoutes);
 
   // Error Handling Middlewareck
   app.get("/health", (req, res) => {
