@@ -15,6 +15,7 @@ import { DrizzleExamSectionSubmissionRepository } from '../../../interface-adapt
 import { DrizzleExamSectionRepository } from '../../../interface-adapters/repositories/DrizzleExamSectionRepository';
 import { DrizzleUserRepository } from '../../../interface-adapters/repositories/DrizzleUserRepository';
 import { DrizzleStudentRepository } from '../../../interface-adapters/repositories/DrizzleStudentRepository';
+import { DrizzleCertificationScoreRepository } from '../../../interface-adapters/repositories/DrizzleCertificationScoreRepository';
 
 const router = Router();
 
@@ -27,6 +28,7 @@ const sectionSubmissionRepository = new DrizzleExamSectionSubmissionRepository()
 const sectionRepository = new DrizzleExamSectionRepository();
 const userRepository = new DrizzleUserRepository();
 const studentRepository = new DrizzleStudentRepository();
+const certificationScoreRepository = new DrizzleCertificationScoreRepository();
 
 const manageExamSessions = new ManageExamSessions(
     submissionRepository, 
@@ -34,7 +36,8 @@ const manageExamSessions = new ManageExamSessions(
     userAnswerRepository, 
     questionRepository,
     sectionSubmissionRepository,
-    sectionRepository
+    sectionRepository,
+    certificationScoreRepository
 );
 const recordUserAnswer = new RecordUserAnswer(
     userAnswerRepository,

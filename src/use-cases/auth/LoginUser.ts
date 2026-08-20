@@ -18,6 +18,10 @@ export class LoginUser {
             throw new Error('Invalid email or password');
         }
 
+        if (user.isVerified === false) {
+            throw new Error('Email not verified');
+        }
+
         const token = jwt.sign(
             { userId: user.id, role: user.role || 'user' },
             env.JWT_SECRET,

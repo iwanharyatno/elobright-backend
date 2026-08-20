@@ -5,6 +5,7 @@ import { IUserAnswerRepository } from '../../domain/repositories/IUserAnswerRepo
 import { IQuestionRepository } from '../../domain/repositories/IQuestionRepository';
 import { IExamSectionSubmissionRepository } from '../../domain/repositories/IExamSectionSubmissionRepository';
 import { IExamSectionRepository } from '../../domain/repositories/IExamSectionRepository';
+import { ICertificationScoreRepository } from '../../domain/repositories/ICertificationScoreRepository';
 import { ExamSectionSubmission } from '../../domain/entities/ExamSectionSubmission';
 
 export class ManageExamSessions {
@@ -14,7 +15,8 @@ export class ManageExamSessions {
         private userAnswerRepository: IUserAnswerRepository,
         private questionRepository: IQuestionRepository,
         private sectionSubmissionRepository: IExamSectionSubmissionRepository,
-        private sectionRepository: IExamSectionRepository
+        private sectionRepository: IExamSectionRepository,
+        private certificationScoreRepository: ICertificationScoreRepository
     ) { }
 
     async startExam(userId: number, examId: string, timezone?: string): Promise<ExamSubmission & { currentSectionSession: ExamSectionSubmission }> {
@@ -189,6 +191,7 @@ export class ManageExamSessions {
         }));
 
         if (submission.status === 'submitted' || submission.status === 'finished-late') {
+            await this.certificationScoreRepository.createForSubmission(submission.userId, submissionId);
             return { submission, sectionSubmissions: augmentedSections };
         }
 
@@ -202,6 +205,8 @@ export class ManageExamSessions {
             ...(timezone && { timezone }),
             submittedAt: now
         });
+
+        await this.certificationScoreRepository.createForSubmission(submission.userId, submissionId);
 
         return { submission: updatedSubmission, sectionSubmissions: augmentedSections };
     }

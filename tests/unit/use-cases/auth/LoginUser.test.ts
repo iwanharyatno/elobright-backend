@@ -62,4 +62,20 @@ describe('LoginUser Use Case', () => {
 
         await expect(loginUser.execute('test@example.com', 'wrongpassword')).rejects.toThrow('Invalid email or password');
     });
+
+    it('should throw an error when the email is not verified', async () => {
+        const mockUser = {
+            id: 1,
+            email: 'test@example.com',
+            passwordHash: 'hashedpassword',
+            isVerified: false,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        };
+
+        mockUserRepository.findByEmail.mockResolvedValue(mockUser);
+        (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+        await expect(loginUser.execute('test@example.com', 'password123')).rejects.toThrow('Email not verified');
+    });
 });

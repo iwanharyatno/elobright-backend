@@ -5,6 +5,7 @@ import { IUserAnswerRepository } from '../../../../src/domain/repositories/IUser
 import { IQuestionRepository } from '../../../../src/domain/repositories/IQuestionRepository';
 import { IExamSectionSubmissionRepository } from '../../../../src/domain/repositories/IExamSectionSubmissionRepository';
 import { IExamSectionRepository } from '../../../../src/domain/repositories/IExamSectionRepository';
+import { ICertificationScoreRepository } from '../../../../src/domain/repositories/ICertificationScoreRepository';
 import { ExamSectionSubmission } from '../../../../src/domain/entities/ExamSectionSubmission';
 import { ExamSection } from '../../../../src/domain/entities/ExamSection';
 
@@ -15,6 +16,7 @@ describe('ManageExamSessions', () => {
     let mockQuestionRepo: jest.Mocked<IQuestionRepository>;
     let mockSectionSubmissionRepo: jest.Mocked<IExamSectionSubmissionRepository>;
     let mockSectionRepo: jest.Mocked<IExamSectionRepository>;
+    let mockCertificationScoreRepo: jest.Mocked<ICertificationScoreRepository>;
     let useCase: ManageExamSessions;
 
     beforeEach(() => {
@@ -65,6 +67,12 @@ describe('ManageExamSessions', () => {
             reorder: jest.fn(),
             getMaxOrderIndex: jest.fn(),
         };
+        mockCertificationScoreRepo = {
+            createForSubmission: jest.fn(),
+            findById: jest.fn(),
+            findAll: jest.fn(),
+            updateAdditionalScore: jest.fn(),
+        };
 
         useCase = new ManageExamSessions(
             mockSubmissionRepo,
@@ -72,7 +80,8 @@ describe('ManageExamSessions', () => {
             mockUserAnswerRepo,
             mockQuestionRepo,
             mockSectionSubmissionRepo,
-            mockSectionRepo
+            mockSectionRepo,
+            mockCertificationScoreRepo
         );
     });
 

@@ -9,7 +9,10 @@ import { questionRoutes } from "./routes/questionRoutes";
 import { questionOptionRoutes } from "./routes/questionOptionRoutes";
 import { examSubmissionRoutes } from "./routes/examSubmissionRoutes";
 import { audioTelemetryRoutes } from "./routes/audioTelemetryRoutes";
+import { certificationAdditionalScoreRoutes } from "./routes/certificationAdditionalScoreRoutes";
+import { certificationScoreRoutes } from "./routes/certificationScoreRoutes";
 import { errorHandler } from "./middleware/errorHandler";
+import { rateLimit } from "./middleware/rateLimiter";
 
 export const createServer = () => {
   const app = express();
@@ -30,6 +33,9 @@ export const createServer = () => {
   //   express.static(path.join(__dirname, "../../../uploads"))
   // );
 
+  // Rate limiting for all API routes
+  app.use('/api', rateLimit({ windowMs: 60_000, max: 120, message: 'Too many requests, please try again later.' }));
+
   app.use("/api/auth", authRoutes);
   app.use("/api/exams", examRoutes);
   app.use("/api/exam-sections", examSectionRoutes);
@@ -37,6 +43,8 @@ export const createServer = () => {
   app.use("/api/question-options", questionOptionRoutes);
   app.use("/api/exam-sessions", examSubmissionRoutes);
   app.use("/api/audio-telemetry", audioTelemetryRoutes);
+  app.use("/api/certification-additional-scores", certificationAdditionalScoreRoutes);
+  app.use("/api/certification-scores", certificationScoreRoutes);
 
   // Error Handling Middlewareck
   app.get("/health", (req, res) => {

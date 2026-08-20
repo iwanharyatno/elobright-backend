@@ -1,6 +1,6 @@
 -- 0. ADMIN USER SEEDER (Default password is 'admin123')
-INSERT INTO users (email, password_hash, full_name, role, phone_number) VALUES
-('superadmin@elobright.com', '$2b$10$/UtBiE3Ju4E8Q.wg4ufi2eC1NIBB1DaqJn9OwZGhTZZA94R746.q.', 'Default Super Admin', 'superadmin', '+1234567890')
+INSERT INTO users (email, password_hash, full_name, role, phone_number, is_verified) VALUES
+('superadmin@elobright.com', '$2b$10$/UtBiE3Ju4E8Q.wg4ufi2eC1NIBB1DaqJn9OwZGhTZZA94R746.q.', 'Default Super Admin', 'superadmin', '+1234567890', true)
 ON CONFLICT (email) DO NOTHING;
 
 -- 1. EXAM SEEDER (3 Records)

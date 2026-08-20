@@ -1,12 +1,15 @@
 import { IUserRepository } from '../../domain/repositories/IUserRepository';
 import { IStudentRepository } from '../../domain/repositories/IStudentRepository';
+import { IEmailService } from '../../domain/repositories/IEmailService';
 import { User } from '../../domain/entities/User';
 import bcrypt from 'bcryptjs';
+import { generateVerificationCode, getVerificationCodeExpiry } from './verificationCode';
 
 export class RegisterUser {
     constructor(
         private userRepository: IUserRepository,
-        private studentRepository: IStudentRepository
+        private studentRepository: IStudentRepository,
+        private emailService: IEmailService
     ) { }
 
     async execute(
@@ -26,7 +29,12 @@ export class RegisterUser {
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(passwordPlain, salt);
 
-        const user = await this.userRepository.create({ email, passwordHash, fullName: full_name, phoneNumber: phone_number });
+        const user = await this.userRepository.create({ email, passwordHash, fullName: full_name, phoneNumber: phone_number, isVerified: false });
+
+        const code = generateVerificationCode();
+        const expiresAt = getVerificationCodeExpiry();
+        await this.userRepository.updateVerificationCode(user.id, code, expiresAt);
+        await this.emailService.sendVerificationCode(user.email, code, user.fullName || undefined);
 
         if (type === 'student') {
             if (!student_id) {

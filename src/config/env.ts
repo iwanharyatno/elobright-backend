@@ -8,6 +8,12 @@ const envSchema = z.object({
     DATABASE_URL: z.string().url(),
     JWT_SECRET: z.string().min(10),
     TIME_ZONE: z.string().default('Asia/Jakarta'),
+    SMTP_HOST: z.string().default(''),
+    SMTP_PORT: z.coerce.number().default(587),
+    SMTP_USER: z.string().default(''),
+    SMTP_PASSWORD: z.string().default(''),
+    EMAIL_FROM: z.string().default('Elobright <no-reply@elobright.com>'),
+    BASE_URL: z.string().default('http://localhost:3000'),
 });
 
 const isTest = process.env.NODE_ENV === 'test';
@@ -22,5 +28,11 @@ export const env = _env.success ? _env.data : {
     PORT: '3000',
     DATABASE_URL: 'postgres://dummy:dummy@localhost:5432/dummy',
     JWT_SECRET: 'supersecretjwtkey12345',
-    TIME_ZONE: 'Asia/Jakarta'
+    TIME_ZONE: 'Asia/Jakarta',
+    SMTP_HOST: '',
+    SMTP_PORT: 587,
+    SMTP_USER: '',
+    SMTP_PASSWORD: '',
+    EMAIL_FROM: 'Elobright <no-reply@elobright.com>',
+    BASE_URL: 'http://localhost:3000'
 } as z.infer<typeof envSchema>;

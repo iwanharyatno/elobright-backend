@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, timestamp, uuid, integer, text, boolean, pgEnum, bigint, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, timestamp, uuid, integer, text, boolean, pgEnum, bigint, jsonb, doublePrecision } from 'drizzle-orm/pg-core';
 
 export const roleEnum = pgEnum('role', ['superadmin', 'admin', 'reviewer', 'moderator', 'user']);
 
@@ -9,6 +9,9 @@ export const usersTable = pgTable('users', {
     fullName: varchar('full_name', { length: 255 }),
     role: roleEnum('role').default('user'),
     phoneNumber: varchar('phone_number', { length: 50 }),
+    isVerified: boolean('is_verified').default(false).notNull(),
+    verificationCode: varchar('verification_code', { length: 6 }),
+    verificationCodeExpiresAt: timestamp('verification_code_expires_at', { withTimezone: true }),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -97,4 +100,18 @@ export const audioTelemetryTable = pgTable('audio_telemetry', {
     timestamp: bigint('timestamp', { mode: 'number' }),
     metrics: jsonb('metrics'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const certificationAdditionalScoresTable = pgTable('certification_additional_scores', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    scoreName: varchar('score_name', { length: 255 }).notNull(),
+    weight: doublePrecision('weight').notNull(),
+});
+
+export const certificationScoresTable = pgTable('certification_score', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: integer('user_id').references(() => usersTable.id).notNull(),
+    examSubmissionId: uuid('exam_submission_id').references(() => examSubmissionsTable.id).notNull().unique(),
+    additionalScore: jsonb('additional_score'),
+    examScoreOverride: doublePrecision('exam_score_override'),
 });
