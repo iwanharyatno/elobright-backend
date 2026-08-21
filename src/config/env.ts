@@ -14,6 +14,9 @@ const envSchema = z.object({
     SMTP_PASSWORD: z.string().default(''),
     EMAIL_FROM: z.string().default('Elobright <no-reply@elobright.com>'),
     BASE_URL: z.string().default('http://localhost:3000'),
+    REDIS_HOST: z.string().default('localhost'),
+    REDIS_PORT: z.coerce.number().default(6379),
+    REDIS_PASSWORD: z.string().default(''),
 });
 
 const isTest = process.env.NODE_ENV === 'test';
@@ -34,5 +37,8 @@ export const env = _env.success ? _env.data : {
     SMTP_USER: '',
     SMTP_PASSWORD: '',
     EMAIL_FROM: 'Elobright <no-reply@elobright.com>',
-    BASE_URL: 'http://localhost:3000'
+    BASE_URL: 'http://localhost:3000',
+    REDIS_HOST: 'localhost',
+    REDIS_PORT: 6379,
+    REDIS_PASSWORD: ''
 } as z.infer<typeof envSchema>;

@@ -13,6 +13,7 @@ import { certificationAdditionalScoreRoutes } from "./routes/certificationAdditi
 import { certificationScoreRoutes } from "./routes/certificationScoreRoutes";
 import { errorHandler } from "./middleware/errorHandler";
 import { rateLimit } from "./middleware/rateLimiter";
+import { requestLogger } from "../logger";
 
 export const createServer = () => {
   const app = express();
@@ -25,6 +26,9 @@ export const createServer = () => {
   app.use(cors());
   app.use(express.json());
 
+  // Request logging middleware
+  app.use(requestLogger);
+
   // Serve uploaded files statically at /uploads
   // Override Helmet's Cross-Origin-Resource-Policy so browsers on other origins
   // (e.g. a separate frontend) can load images and audio files directly.
@@ -33,7 +37,10 @@ export const createServer = () => {
   //   express.static(path.join(__dirname, "../../../uploads"))
   // );
 
-  // Rate limiting for all API routes
+  // General rate limiting for all routes (including non-API)
+  app.use(rateLimit({ windowMs: 60_000, max: 200, message: 'Too many requests, please try again later.' }));
+
+  // Stricter rate limiting for API routes
   app.use('/api', rateLimit({ windowMs: 60_000, max: 120, message: 'Too many requests, please try again later.' }));
 
   app.use("/api/auth", authRoutes);
@@ -46,7 +53,7 @@ export const createServer = () => {
   app.use("/api/certification-additional-scores", certificationAdditionalScoreRoutes);
   app.use("/api/certification-scores", certificationScoreRoutes);
 
-  // Error Handling Middlewareck
+  // Error Handling Middleware
   app.get("/health", (req, res) => {
     res.status(200).json({ status: "ok" });
   });
