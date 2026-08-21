@@ -13,14 +13,15 @@ describe('ManageExamSections Use Case', () => {
             findByExamId: jest.fn(),
             update: jest.fn(),
             delete: jest.fn(),
-            reorder: jest.fn()
+            reorder: jest.fn(),
+            getMaxOrderIndex: jest.fn()
         } as unknown as jest.Mocked<IExamSectionRepository>;
 
         manageExamSections = new ManageExamSections(mockSectionRepository);
     });
 
     it('should create an exam section', async () => {
-        const sectionData = { examId: 'exam-1', title: 'Reading', instructions: 'Instructions', orderIndex: 1 };
+        const sectionData = { examId: 'exam-1', title: 'Reading', instructions: 'Instructions', orderIndex: 1, durationMinutes: 60 };
         const mockCreated = { id: 'section-1', ...sectionData } as unknown as ExamSection;
         mockSectionRepository.create.mockResolvedValue(mockCreated);
 
@@ -31,7 +32,7 @@ describe('ManageExamSections Use Case', () => {
     });
 
     it('should get an exam section by id', async () => {
-        const mockSection = { id: 'section-1', name: 'Reading' } as unknown as ExamSection;
+        const mockSection = { id: 'section-1', examId: 'exam-1', title: 'Reading', instructions: 'Instructions', orderIndex: 1, durationMinutes: 60 } as unknown as ExamSection;
         mockSectionRepository.findById.mockResolvedValue(mockSection);
 
         const result = await manageExamSections.getById('section-1');
@@ -41,7 +42,7 @@ describe('ManageExamSections Use Case', () => {
     });
 
     it('should get exam sections by exam id', async () => {
-        const mockSections = [{ id: 'section-1', name: 'Reading' }] as unknown as ExamSection[];
+        const mockSections = [{ id: 'section-1', examId: 'exam-1', title: 'Reading', instructions: 'Instructions', orderIndex: 1, durationMinutes: 60 }] as unknown as ExamSection[];
         mockSectionRepository.findByExamId.mockResolvedValue(mockSections);
 
         const result = await manageExamSections.getByExamId('exam-1');
@@ -52,7 +53,7 @@ describe('ManageExamSections Use Case', () => {
 
     it('should update an exam section', async () => {
         const updateData = { title: 'Listening' };
-        const mockUpdated = { id: 'section-1', ...updateData } as unknown as ExamSection;
+        const mockUpdated = { id: 'section-1', examId: 'exam-1', title: 'Listening', instructions: 'Instructions', orderIndex: 1, durationMinutes: 60 } as unknown as ExamSection;
         mockSectionRepository.update.mockResolvedValue(mockUpdated);
 
         const result = await manageExamSections.update('section-1', updateData);
