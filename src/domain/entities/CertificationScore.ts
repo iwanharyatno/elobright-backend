@@ -1,4 +1,5 @@
 import { User } from './User';
+import { Exam } from './Exam';
 
 export interface CertificationScore {
     id: string;
@@ -11,4 +12,5 @@ export interface CertificationScore {
 export interface CertificationScoreWithUser extends CertificationScore {
     user?: Omit<User, 'passwordHash' | 'verificationCode'>;
     originalExamScore?: number;
+    exam?: Exam;
 }

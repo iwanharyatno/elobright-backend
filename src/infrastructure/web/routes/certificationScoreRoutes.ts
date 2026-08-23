@@ -31,7 +31,9 @@ const manageCertificationScores = new ManageCertificationScores(
     additionalScoreRepository,
     sectionSubmissionRepository,
     sectionRepository,
-    questionRepository
+    questionRepository,
+    submissionRepository,
+    examRepository
 );
 const manageCertificate = new ManageCertificate(
     certificationScoreRepository,

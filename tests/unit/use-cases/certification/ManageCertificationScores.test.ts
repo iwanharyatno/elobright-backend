@@ -4,6 +4,8 @@ import { ICertificationAdditionalScoreRepository } from '../../../../src/domain/
 import { IExamSectionSubmissionRepository } from '../../../../src/domain/repositories/IExamSectionSubmissionRepository';
 import { IExamSectionRepository } from '../../../../src/domain/repositories/IExamSectionRepository';
 import { IQuestionRepository } from '../../../../src/domain/repositories/IQuestionRepository';
+import { IExamSubmissionRepository } from '../../../../src/domain/repositories/IExamSubmissionRepository';
+import { IExamRepository } from '../../../../src/domain/repositories/IExamRepository';
 import { CertificationScore } from '../../../../src/domain/entities/CertificationScore';
 
 describe('ManageCertificationScores Use Case', () => {
@@ -13,6 +15,8 @@ describe('ManageCertificationScores Use Case', () => {
     let mockSectionSubmissionRepo: jest.Mocked<IExamSectionSubmissionRepository>;
     let mockSectionRepo: jest.Mocked<IExamSectionRepository>;
     let mockQuestionRepo: jest.Mocked<IQuestionRepository>;
+    let mockSubmissionRepo: jest.Mocked<IExamSubmissionRepository>;
+    let mockExamRepo: jest.Mocked<IExamRepository>;
 
     const baseScore: CertificationScore = {
         id: 'cert-1',
@@ -53,7 +57,7 @@ describe('ManageCertificationScores Use Case', () => {
         mockSectionRepo = {
             create: jest.fn(),
             findById: jest.fn(),
-            findByExamId: jest.fn(),
+            findByExamId: jest.fn().mockResolvedValue([]),
             update: jest.fn(),
             delete: jest.fn(),
             reorder: jest.fn(),
@@ -71,12 +75,31 @@ describe('ManageCertificationScores Use Case', () => {
             getMaxOrderIndex: jest.fn()
         } as unknown as jest.Mocked<IQuestionRepository>;
 
+        mockSubmissionRepo = {
+            create: jest.fn(),
+            update: jest.fn(),
+            findById: jest.fn().mockResolvedValue(null),
+            findByUserAndExam: jest.fn(),
+            findByUserId: jest.fn(),
+            findAllWithDetails: jest.fn()
+        } as unknown as jest.Mocked<IExamSubmissionRepository>;
+
+        mockExamRepo = {
+            create: jest.fn(),
+            findById: jest.fn().mockResolvedValue(null),
+            findAll: jest.fn(),
+            update: jest.fn(),
+            delete: jest.fn()
+        } as unknown as jest.Mocked<IExamRepository>;
+
         manageCertificationScores = new ManageCertificationScores(
             mockCertificationScoreRepo,
             mockAdditionalScoreRepo,
             mockSectionSubmissionRepo,
             mockSectionRepo,
-            mockQuestionRepo
+            mockQuestionRepo,
+            mockSubmissionRepo,
+            mockExamRepo
         );
     });
 
@@ -98,13 +121,22 @@ describe('ManageCertificationScores Use Case', () => {
         expect(result).toEqual([{ ...baseScore, originalExamScore: 0 }]);
     });
 
-    it('should compute originalExamScore scaled to 0-100 across all sections', async () => {
-        // section 1: 18/20 points, section 2: 6/10 points -> 24/30 = 80
-        mockCertificationScoreRepo.findAll.mockResolvedValue([baseScore]);
+    it('should compute originalExamScore scaled to 0-100 across all exam sections', async () => {
+        // attempted: section-1 totalScore 18; exam has section-1 (20 pts) + section-2 (10 pts) -> 18/30 = 60
+        const scoreWithExam = { ...baseScore, id: 'cert-exam' };
+        mockCertificationScoreRepo.findAll.mockResolvedValue([scoreWithExam]);
         mockSectionSubmissionRepo.findBySubmissionId.mockResolvedValue([
             { id: 'ss-1', submissionId: 'sub-1', examSectionId: 'section-1', totalScore: 18 },
-            { id: 'ss-2', submissionId: 'sub-1', examSectionId: 'section-2', totalScore: 6 },
         ] as any);
+        mockSubmissionRepo.findById.mockResolvedValue({
+            id: 'sub-1', userId: 1, examId: 'exam-1', status: 'submitted',
+            timezone: null, startedAt: new Date(), submittedAt: new Date()
+        });
+        mockExamRepo.findById.mockResolvedValue({ id: 'exam-1', title: 'TOEFL', type: 'TOEFL', isOnce: false });
+        mockSectionRepo.findByExamId.mockResolvedValue([
+            { id: 'section-1', examId: 'exam-1', title: null, instructions: null, orderIndex: 0, durationMinutes: 30 },
+            { id: 'section-2', examId: 'exam-1', title: null, instructions: null, orderIndex: 1, durationMinutes: 30 },
+        ]);
         mockQuestionRepo.findBySectionId.mockImplementation(async (sectionId: string) =>
             sectionId === 'section-1'
                 ? ([{ points: 10 }, { points: 5 }, { points: 5 }] as any)
@@ -113,7 +145,7 @@ describe('ManageCertificationScores Use Case', () => {
 
         const result = await manageCertificationScores.getAll();
 
-        expect(result[0].originalExamScore).toBe(80);
+        expect(result[0].originalExamScore).toBe(60);
     });
 
     it('should return originalExamScore of 0 when the submission has no section submissions', async () => {
@@ -123,6 +155,30 @@ describe('ManageCertificationScores Use Case', () => {
         const result = await manageCertificationScores.getAll();
 
         expect(result[0].originalExamScore).toBe(0);
+    });
+
+    it('should resolve the exam entity from the exam submission', async () => {
+        const mockExam = { id: 'exam-1', title: 'TOEFL Practice', type: 'TOEFL', isOnce: false };
+        mockCertificationScoreRepo.findAll.mockResolvedValue([baseScore]);
+        mockSubmissionRepo.findById.mockResolvedValue({
+            id: 'sub-1', userId: 1, examId: 'exam-1', status: 'submitted',
+            timezone: null, startedAt: new Date(), submittedAt: new Date()
+        });
+        mockExamRepo.findById.mockResolvedValue(mockExam);
+
+        const result = await manageCertificationScores.getAll();
+
+        expect(mockSubmissionRepo.findById).toHaveBeenCalledWith('sub-1');
+        expect(mockExamRepo.findById).toHaveBeenCalledWith('exam-1');
+        expect(result[0].exam).toEqual(mockExam);
+    });
+
+    it('should omit exam when the exam submission no longer exists', async () => {
+        mockCertificationScoreRepo.findAll.mockResolvedValue([baseScore]);
+
+        const result = await manageCertificationScores.getAll();
+
+        expect(result[0].exam).toBeUndefined();
     });
 
     it('should return empty array when filtering by unknown exam submission id', async () => {
