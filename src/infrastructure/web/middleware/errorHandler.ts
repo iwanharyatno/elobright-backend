@@ -1,9 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
+import { logger } from '../../logger';
 
 export const errorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
-    console.error(err);
-
     if (err instanceof ZodError) {
         return res.status(400).json({
             error: 'Validation Error',
@@ -34,6 +33,11 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
     if (err.message === 'SMTP is not configured') {
         return res.status(503).json({ error: err.message });
     }
+
+    logger.error(`Unhandled error on ${req.method} ${req.originalUrl}`, {
+        errorMessage: err?.message,
+        stack: err?.stack,
+    });
 
     res.status(500).json({ error: 'Internal Server Error' });
 };
