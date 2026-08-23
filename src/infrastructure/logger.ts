@@ -60,6 +60,11 @@ export const logger = winston.createLogger({
 });
 
 export const requestLogger = (req: any, res: any, next: any) => {
+    if (req.originalUrl === '/health' || req.url === '/health') {
+        next();
+        return;
+    }
+
     const start = Date.now();
     const requestId = Math.random().toString(36).slice(2, 10);
 
