@@ -19,7 +19,7 @@ describe('ManageExams Use Case', () => {
     });
 
     it('should create an exam', async () => {
-        const examData = { title: 'Test Exam', description: 'Test Description', durationMinutes: 120, type: 'TOEFL' };
+        const examData = { title: 'Test Exam', description: 'Test Description', durationMinutes: 120, type: 'TOEFL', isOnce: false };
         const mockCreatedExam = { id: 'exam-123', ...examData } as unknown as Exam;
         mockExamRepository.create.mockResolvedValue(mockCreatedExam);
 

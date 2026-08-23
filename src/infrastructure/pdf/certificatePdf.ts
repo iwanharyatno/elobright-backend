@@ -12,7 +12,7 @@ export interface CertificatePdfData {
     additionalScores: Record<string, number> | null;
 }
 
-const BACKGROUND_IMAGE_PATH = path.join(process.cwd(), 'assets', 'certificate-background.png');
+const BACKGROUND_IMAGE_PATH = path.join(process.cwd(), 'assets', 'certificate-background.jpeg');
 
 const formatScore = (value: number): string => value.toFixed(1);
 

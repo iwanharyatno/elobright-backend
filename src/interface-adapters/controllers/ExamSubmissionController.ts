@@ -89,6 +89,9 @@ export class ExamSubmissionController {
       if (error.message === "Exam not found") {
         return res.status(404).json({ message: error.message });
       }
+      if (error.message === "Exam can only be taken once") {
+        return res.status(403).json({ message: error.message });
+      }
       if (error.message === "Ongoing session already exists") {
         let endTimeLocale: string | undefined;
         if (

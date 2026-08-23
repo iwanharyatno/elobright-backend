@@ -1,8 +1,13 @@
 import { eq } from 'drizzle-orm';
 import { db } from '../../infrastructure/database/db';
-import { certificationScoresTable } from '../../infrastructure/database/schema';
+import { certificationScoresTable, usersTable } from '../../infrastructure/database/schema';
 import { ICertificationScoreRepository } from '../../domain/repositories/ICertificationScoreRepository';
-import { CertificationScore } from '../../domain/entities/CertificationScore';
+import { CertificationScore, CertificationScoreWithUser } from '../../domain/entities/CertificationScore';
+
+const toPublicUser = (user: typeof usersTable.$inferSelect) => {
+    const { passwordHash: _passwordHash, verificationCode: _verificationCode, ...publicUser } = user;
+    return publicUser;
+};
 
 export class DrizzleCertificationScoreRepository implements ICertificationScoreRepository {
     async createForSubmission(userId: number, examSubmissionId: string): Promise<CertificationScore | null> {
@@ -30,9 +35,15 @@ export class DrizzleCertificationScoreRepository implements ICertificationScoreR
         return (score as CertificationScore) || null;
     }
 
-    async findAll(): Promise<CertificationScore[]> {
-        const scores = await db.select().from(certificationScoresTable);
-        return scores as CertificationScore[];
+    async findAll(): Promise<CertificationScoreWithUser[]> {
+        const rows = await db
+            .select({ score: certificationScoresTable, user: usersTable })
+            .from(certificationScoresTable)
+            .leftJoin(usersTable, eq(certificationScoresTable.userId, usersTable.id));
+        return rows.map(({ score, user }) => ({
+            ...(score as CertificationScore),
+            user: user ? toPublicUser(user) : undefined,
+        }));
     }
 
     async updateAdditionalScore(id: string, additionalScore: Record<string, number>): Promise<CertificationScore | null> {

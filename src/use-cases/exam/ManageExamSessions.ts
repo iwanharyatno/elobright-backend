@@ -79,6 +79,13 @@ export class ManageExamSessions {
             throw error;
         }
 
+        if (exam.isOnce) {
+            const hasPriorAttempt = existingSubmissions.some(s => s.status !== 'ongoing');
+            if (hasPriorAttempt) {
+                throw new Error('Exam can only be taken once');
+            }
+        }
+
         const startedAt = new Date();
 
         const submission = await this.submissionRepository.create({

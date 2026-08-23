@@ -27,6 +27,7 @@ export const examsTable = pgTable('exams', {
     id: uuid('id').primaryKey().defaultRandom(),
     title: varchar('title', { length: 255 }),
     type: varchar('type', { length: 50 }),
+    isOnce: boolean('is_once').default(false).notNull(),
 });
 
 export const examSectionsTable = pgTable('exam_sections', {

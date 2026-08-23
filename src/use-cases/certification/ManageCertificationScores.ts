@@ -1,6 +1,6 @@
 import { ICertificationScoreRepository } from '../../domain/repositories/ICertificationScoreRepository';
 import { ICertificationAdditionalScoreRepository } from '../../domain/repositories/ICertificationAdditionalScoreRepository';
-import { CertificationScore } from '../../domain/entities/CertificationScore';
+import { CertificationScore, CertificationScoreWithUser } from '../../domain/entities/CertificationScore';
 
 export interface UpdateCertificationScoreData {
     additionalScore?: Record<string, number>;
@@ -13,7 +13,7 @@ export class ManageCertificationScores {
         private additionalScoreRepository: ICertificationAdditionalScoreRepository
     ) { }
 
-    async getAll(examSubmissionId?: string): Promise<CertificationScore[]> {
+    async getAll(examSubmissionId?: string): Promise<(CertificationScore & CertificationScoreWithUser)[]> {
         if (examSubmissionId) {
             const score = await this.certificationScoreRepository.findByExamSubmissionId(examSubmissionId);
             return score ? [score] : [];

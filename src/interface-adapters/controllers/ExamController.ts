@@ -6,6 +6,7 @@ const createExamSchema = z.object({
     title: z.string().max(255).optional().nullable(),
     type: z.string().max(50).optional().nullable(),
     durationMinutes: z.number().int().optional().nullable(),
+    isOnce: z.boolean().optional(),
 });
 
 const updateExamSchema = createExamSchema.partial();

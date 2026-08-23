@@ -306,4 +306,128 @@ describe('ManageExamSessions', () => {
             );
         });
     });
+
+    describe('startExam with one-attempt exams', () => {
+        const userId = 1;
+        const examId = 'exam-once';
+
+        const baseSection: ExamSection = {
+            id: 'section-001',
+            examId,
+            title: 'Reading',
+            instructions: null,
+            orderIndex: 0,
+            durationMinutes: 30,
+        };
+
+        const setupHappyPath = () => {
+            const now = new Date('2023-01-01T10:00:00Z');
+            mockSubmissionRepo.create.mockResolvedValue({
+                id: 'sub-new',
+                userId,
+                examId,
+                status: 'ongoing',
+                timezone: null,
+                startedAt: now,
+                submittedAt: null,
+            });
+            mockSectionRepo.findByExamId.mockResolvedValue([baseSection]);
+            mockSectionSubmissionRepo.create.mockResolvedValue({
+                id: 'sec-sub-new',
+                submissionId: 'sub-new',
+                examSectionId: baseSection.id,
+                status: 'ongoing',
+                totalScore: 0,
+                timezone: null,
+                startedAt: now,
+                endTimeLimit: new Date(now.getTime() + baseSection.durationMinutes * 60000),
+                submittedAt: null,
+            });
+        };
+
+        it('should forbid starting when the once-only exam was already attempted', async () => {
+            mockExamRepo.findById.mockResolvedValue({
+                id: examId, title: 'Certification', type: 'TOEFL', isOnce: true
+            });
+            mockSubmissionRepo.findByUserAndExam.mockResolvedValue([
+                { id: 'sub-old', userId, examId, status: 'submitted', timezone: null, startedAt: new Date(), submittedAt: new Date() }
+            ]);
+
+            await expect(useCase.startExam(userId, examId)).rejects.toThrow('Exam can only be taken once');
+            expect(mockSubmissionRepo.create).not.toHaveBeenCalled();
+        });
+
+        it('should count finished-late attempts as prior attempts on once-only exams', async () => {
+            mockExamRepo.findById.mockResolvedValue({
+                id: examId, title: 'Certification', type: 'TOEFL', isOnce: true
+            });
+            mockSubmissionRepo.findByUserAndExam.mockResolvedValue([
+                { id: 'sub-old', userId, examId, status: 'finished-late', timezone: null, startedAt: new Date(), submittedAt: new Date() }
+            ]);
+
+            await expect(useCase.startExam(userId, examId)).rejects.toThrow('Exam can only be taken once');
+            expect(mockSubmissionRepo.create).not.toHaveBeenCalled();
+        });
+
+        it('should allow starting when the once-only exam has no prior attempts', async () => {
+            mockExamRepo.findById.mockResolvedValue({
+                id: examId, title: 'Certification', type: 'TOEFL', isOnce: true
+            });
+            mockSubmissionRepo.findByUserAndExam.mockResolvedValue([]);
+            setupHappyPath();
+
+            const result = await useCase.startExam(userId, examId);
+
+            expect(mockSubmissionRepo.create).toHaveBeenCalled();
+            expect(result.currentSectionSession.examSectionId).toBe(baseSection.id);
+        });
+
+        it('should still allow resuming an ongoing session on a once-only exam', async () => {
+            jest.useFakeTimers();
+            const now = new Date('2023-01-01T11:00:00Z');
+            jest.setSystemTime(now);
+
+            mockExamRepo.findById.mockResolvedValue({
+                id: examId, title: 'Certification', type: 'TOEFL', isOnce: true
+            });
+            const ongoing = { id: 'sub-live', userId, examId, status: 'ongoing' as const, timezone: null, startedAt: now, submittedAt: null };
+            mockSubmissionRepo.findByUserAndExam.mockResolvedValue([
+                ongoing,
+                { id: 'sub-old', userId, examId, status: 'submitted', timezone: null, startedAt: new Date(), submittedAt: new Date() }
+            ]);
+            mockSectionSubmissionRepo.findLatestBySubmissionId.mockResolvedValue({
+                id: 'sec-sub-live',
+                submissionId: 'sub-live',
+                examSectionId: baseSection.id,
+                status: 'ongoing',
+                totalScore: 0,
+                timezone: null,
+                startedAt: now,
+                endTimeLimit: new Date(now.getTime() + baseSection.durationMinutes * 60000),
+                submittedAt: null,
+            });
+            mockSectionSubmissionRepo.findBySubmissionId.mockResolvedValue([]);
+
+            const error = await useCase.startExam(userId, examId).catch(e => e) as any;
+
+            expect(error.message).toBe('Ongoing session already exists');
+            expect(error.session.id).toBe('sub-live');
+            expect(mockSubmissionRepo.create).not.toHaveBeenCalled();
+        });
+
+        it('should allow re-attempts when the exam is not once-only', async () => {
+            mockExamRepo.findById.mockResolvedValue({
+                id: examId, title: 'Practice', type: 'TOEFL', isOnce: false
+            });
+            mockSubmissionRepo.findByUserAndExam.mockResolvedValue([
+                { id: 'sub-old', userId, examId, status: 'submitted', timezone: null, startedAt: new Date(), submittedAt: new Date() }
+            ]);
+            setupHappyPath();
+
+            const result = await useCase.startExam(userId, examId);
+
+            expect(mockSubmissionRepo.create).toHaveBeenCalled();
+            expect(result.currentSectionSession.examSectionId).toBe(baseSection.id);
+        });
+    });
 });
