@@ -1,12 +1,18 @@
 import { ManageCertificationScores } from '../../../../src/use-cases/certification/ManageCertificationScores';
 import { ICertificationScoreRepository } from '../../../../src/domain/repositories/ICertificationScoreRepository';
 import { ICertificationAdditionalScoreRepository } from '../../../../src/domain/repositories/ICertificationAdditionalScoreRepository';
+import { IExamSectionSubmissionRepository } from '../../../../src/domain/repositories/IExamSectionSubmissionRepository';
+import { IExamSectionRepository } from '../../../../src/domain/repositories/IExamSectionRepository';
+import { IQuestionRepository } from '../../../../src/domain/repositories/IQuestionRepository';
 import { CertificationScore } from '../../../../src/domain/entities/CertificationScore';
 
 describe('ManageCertificationScores Use Case', () => {
     let manageCertificationScores: ManageCertificationScores;
     let mockCertificationScoreRepo: jest.Mocked<ICertificationScoreRepository>;
     let mockAdditionalScoreRepo: jest.Mocked<ICertificationAdditionalScoreRepository>;
+    let mockSectionSubmissionRepo: jest.Mocked<IExamSectionSubmissionRepository>;
+    let mockSectionRepo: jest.Mocked<IExamSectionRepository>;
+    let mockQuestionRepo: jest.Mocked<IQuestionRepository>;
 
     const baseScore: CertificationScore = {
         id: 'cert-1',
@@ -34,7 +40,44 @@ describe('ManageCertificationScores Use Case', () => {
             delete: jest.fn()
         } as unknown as jest.Mocked<ICertificationAdditionalScoreRepository>;
 
-        manageCertificationScores = new ManageCertificationScores(mockCertificationScoreRepo, mockAdditionalScoreRepo);
+        mockSectionSubmissionRepo = {
+            create: jest.fn(),
+            update: jest.fn(),
+            findById: jest.fn(),
+            findBySubmissionId: jest.fn().mockResolvedValue([]),
+            findBySubmissionAndSection: jest.fn(),
+            findLatestBySubmissionId: jest.fn(),
+            incrementTotalScore: jest.fn()
+        } as unknown as jest.Mocked<IExamSectionSubmissionRepository>;
+
+        mockSectionRepo = {
+            create: jest.fn(),
+            findById: jest.fn(),
+            findByExamId: jest.fn(),
+            update: jest.fn(),
+            delete: jest.fn(),
+            reorder: jest.fn(),
+            getMaxOrderIndex: jest.fn()
+        } as unknown as jest.Mocked<IExamSectionRepository>;
+
+        mockQuestionRepo = {
+            create: jest.fn(),
+            findById: jest.fn(),
+            findBySectionId: jest.fn().mockResolvedValue([]),
+            findByIds: jest.fn(),
+            update: jest.fn(),
+            delete: jest.fn(),
+            reorder: jest.fn(),
+            getMaxOrderIndex: jest.fn()
+        } as unknown as jest.Mocked<IQuestionRepository>;
+
+        manageCertificationScores = new ManageCertificationScores(
+            mockCertificationScoreRepo,
+            mockAdditionalScoreRepo,
+            mockSectionSubmissionRepo,
+            mockSectionRepo,
+            mockQuestionRepo
+        );
     });
 
     it('should get all certification scores', async () => {
@@ -43,7 +86,7 @@ describe('ManageCertificationScores Use Case', () => {
         const result = await manageCertificationScores.getAll();
 
         expect(mockCertificationScoreRepo.findAll).toHaveBeenCalledWith();
-        expect(result).toEqual([baseScore]);
+        expect(result).toEqual([{ ...baseScore, originalExamScore: 0 }]);
     });
 
     it('should filter certification scores by exam submission id', async () => {
@@ -52,7 +95,34 @@ describe('ManageCertificationScores Use Case', () => {
         const result = await manageCertificationScores.getAll('sub-1');
 
         expect(mockCertificationScoreRepo.findByExamSubmissionId).toHaveBeenCalledWith('sub-1');
-        expect(result).toEqual([baseScore]);
+        expect(result).toEqual([{ ...baseScore, originalExamScore: 0 }]);
+    });
+
+    it('should compute originalExamScore scaled to 0-100 across all sections', async () => {
+        // section 1: 18/20 points, section 2: 6/10 points -> 24/30 = 80
+        mockCertificationScoreRepo.findAll.mockResolvedValue([baseScore]);
+        mockSectionSubmissionRepo.findBySubmissionId.mockResolvedValue([
+            { id: 'ss-1', submissionId: 'sub-1', examSectionId: 'section-1', totalScore: 18 },
+            { id: 'ss-2', submissionId: 'sub-1', examSectionId: 'section-2', totalScore: 6 },
+        ] as any);
+        mockQuestionRepo.findBySectionId.mockImplementation(async (sectionId: string) =>
+            sectionId === 'section-1'
+                ? ([{ points: 10 }, { points: 5 }, { points: 5 }] as any)
+                : ([{ points: 4 }, { points: 3 }, { points: 3 }] as any)
+        );
+
+        const result = await manageCertificationScores.getAll();
+
+        expect(result[0].originalExamScore).toBe(80);
+    });
+
+    it('should return originalExamScore of 0 when the submission has no section submissions', async () => {
+        mockCertificationScoreRepo.findAll.mockResolvedValue([baseScore]);
+        mockSectionSubmissionRepo.findBySubmissionId.mockResolvedValue([]);
+
+        const result = await manageCertificationScores.getAll();
+
+        expect(result[0].originalExamScore).toBe(0);
     });
 
     it('should return empty array when filtering by unknown exam submission id', async () => {

@@ -1,5 +1,8 @@
 import { ICertificationScoreRepository } from '../../domain/repositories/ICertificationScoreRepository';
 import { ICertificationAdditionalScoreRepository } from '../../domain/repositories/ICertificationAdditionalScoreRepository';
+import { IExamSectionSubmissionRepository } from '../../domain/repositories/IExamSectionSubmissionRepository';
+import { IExamSectionRepository } from '../../domain/repositories/IExamSectionRepository';
+import { IQuestionRepository } from '../../domain/repositories/IQuestionRepository';
 import { CertificationScore, CertificationScoreWithUser } from '../../domain/entities/CertificationScore';
 
 export interface UpdateCertificationScoreData {
@@ -10,15 +13,40 @@ export interface UpdateCertificationScoreData {
 export class ManageCertificationScores {
     constructor(
         private certificationScoreRepository: ICertificationScoreRepository,
-        private additionalScoreRepository: ICertificationAdditionalScoreRepository
+        private additionalScoreRepository: ICertificationAdditionalScoreRepository,
+        private sectionSubmissionRepository: IExamSectionSubmissionRepository,
+        private sectionRepository: IExamSectionRepository,
+        private questionRepository: IQuestionRepository
     ) { }
 
-    async getAll(examSubmissionId?: string): Promise<(CertificationScore & CertificationScoreWithUser)[]> {
+    private async computeOriginalExamScore(examSubmissionId: string): Promise<number> {
+        const sectionSubmissions = await this.sectionSubmissionRepository.findBySubmissionId(examSubmissionId);
+
+        let totalScore = 0;
+        let maxScore = 0;
+        for (const ss of sectionSubmissions) {
+            totalScore += ss.totalScore || 0;
+            const questions = await this.questionRepository.findBySectionId(ss.examSectionId);
+            maxScore += questions.reduce((sum, q) => sum + (q.points || 0), 0);
+        }
+
+        if (maxScore === 0) return 0;
+        return Math.round((totalScore / maxScore) * 1000) / 10;
+    }
+
+    async getAll(examSubmissionId?: string): Promise<CertificationScoreWithUser[]> {
+        let scores: CertificationScoreWithUser[];
         if (examSubmissionId) {
             const score = await this.certificationScoreRepository.findByExamSubmissionId(examSubmissionId);
-            return score ? [score] : [];
+            scores = score ? [score] : [];
+        } else {
+            scores = await this.certificationScoreRepository.findAll();
         }
-        return this.certificationScoreRepository.findAll();
+
+        return Promise.all(scores.map(async (score) => ({
+            ...score,
+            originalExamScore: await this.computeOriginalExamScore(score.examSubmissionId),
+        })));
     }
 
     async update(id: string, data: UpdateCertificationScoreData): Promise<CertificationScore | null> {

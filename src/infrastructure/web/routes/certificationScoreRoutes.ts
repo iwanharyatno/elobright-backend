@@ -26,7 +26,13 @@ const questionRepository = new DrizzleQuestionRepository();
 const examRepository = new DrizzleExamRepository();
 const emailService = new NodemailerEmailService();
 
-const manageCertificationScores = new ManageCertificationScores(certificationScoreRepository, additionalScoreRepository);
+const manageCertificationScores = new ManageCertificationScores(
+    certificationScoreRepository,
+    additionalScoreRepository,
+    sectionSubmissionRepository,
+    sectionRepository,
+    questionRepository
+);
 const manageCertificate = new ManageCertificate(
     certificationScoreRepository,
     additionalScoreRepository,

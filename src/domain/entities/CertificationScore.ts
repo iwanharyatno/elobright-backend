@@ -10,4 +10,5 @@ export interface CertificationScore {
 
 export interface CertificationScoreWithUser extends CertificationScore {
     user?: Omit<User, 'passwordHash' | 'verificationCode'>;
+    originalExamScore?: number;
 }

@@ -13,6 +13,7 @@ services:
     command: yarn start
     volumes:
       - "./uploads:/usr/src/app/uploads"
+      - "./logs:/usr/src/logs"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3000/health"]
       interval: 5s
