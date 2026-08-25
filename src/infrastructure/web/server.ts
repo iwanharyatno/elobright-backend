@@ -18,6 +18,7 @@ import { requestLogger } from "../logger";
 export const createServer = () => {
   const app = express();
 
+  app.set('trust proxy', true);
   app.use(
     helmet({
       crossOriginResourcePolicy: { policy: "cross-origin" },
