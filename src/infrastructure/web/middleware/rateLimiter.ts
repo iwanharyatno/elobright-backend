@@ -1,7 +1,33 @@
 import rateLimit from 'express-rate-limit';
 import { RedisStore, type RedisReply } from 'rate-limit-redis';
 import Redis from 'ioredis';
+import type { Request } from 'express';
 import { env } from '../../../config/env';
+
+const LOOPBACK_IPS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+
+/**
+ * Resolves the real client IP:
+ * 1. req.ip (respects Express `trust proxy`)
+ * 2. falls back to X-Forwarded-For (leftmost entry = original client)
+ *    when req.ip is a loopback address — e.g. when the app sits
+ *    behind an nginx proxy that doesn't feed `trust proxy` correctly.
+ */
+const getClientIp = (req: Request): string => {
+    const reqIp = req.ip || '';
+
+    if (reqIp && !LOOPBACK_IPS.has(reqIp)) {
+        return reqIp;
+    }
+
+    const forwarded = req.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.trim().length > 0) {
+        const candidate = forwarded.split(',')[0].trim();
+        if (candidate) return candidate;
+    }
+
+    return reqIp || 'unknown';
+};
 
 const redisClient = new Redis({
     host: env.REDIS_HOST,
@@ -26,7 +52,7 @@ export const apiRateLimiter = rateLimit({
     limit: env.RATE_LIMIT_MAX,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
-    keyGenerator: (req, res) => req.ip || res.locals?.ip || 'unknown',
+    keyGenerator: (req) => getClientIp(req),
     message: { error: 'Too many requests, please try again later.' },
     store: new RedisStore({
         sendCommand: async (...args: string[]): Promise<RedisReply> =>
