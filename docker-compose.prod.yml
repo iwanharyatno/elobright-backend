@@ -14,6 +14,7 @@ services:
     volumes:
       - "./uploads:/usr/src/app/uploads"
       - "./logs:/usr/src/app/logs"
+      - "./drizzle:/usr/src/app/drizzle"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3000/health"]
       interval: 5s
