@@ -2081,6 +2081,14 @@ expect@30.3.0, expect@^30.0.0:
     jest-mock "30.3.0"
     jest-util "30.3.0"
 
+express-rate-limit@^8.6.2:
+  version "8.6.2"
+  resolved "https://registry.yarnpkg.com/express-rate-limit/-/express-rate-limit-8.6.2.tgz#1a6c7fb6c5f5a83883c14f1d198fcdff60087c5d"
+  integrity sha512-YH4ru+eOJxQABscKFfRCy9R7x9QFGdezclVMwwgFFndzS2Xnm0uo6B0ABZsLhcpeptGv2qvuJVWlQr9gQZoC3A==
+  dependencies:
+    debug "^4.4.3"
+    ip-address "^10.2.0"
+
 express@^5.2.1:
   version "5.2.1"
   resolved "https://registry.npmjs.org/express/-/express-5.2.1.tgz"
@@ -2415,6 +2423,11 @@ ioredis@^6.0.0:
     denque "2.1.0"
     redis-errors "1.2.0"
     standard-as-callback "2.1.0"
+
+ip-address@^10.2.0:
+  version "10.5.0"
+  resolved "https://registry.yarnpkg.com/ip-address/-/ip-address-10.5.0.tgz#fcd6d7dfe9e68416b7cb71afe9bc960b3e38c13b"
+  integrity sha512-R5SnVLJmgYYvf2F2ZgwSBnelz5G4q5AxIC277GDfUaNbrZKNANcBC7RHqYYePlszf4kBolVkJauG0ZjHHFh55g==
 
 ipaddr.js@1.9.1:
   version "1.9.1"
@@ -3544,6 +3557,11 @@ range-parser@^1.2.1:
   version "1.2.1"
   resolved "https://registry.npmjs.org/range-parser/-/range-parser-1.2.1.tgz"
   integrity sha512-Hrgsx+orqoygnmhFbKaHE6c296J+HTAQXoxEF6gNupROmmGJRoyzfG3ccAveqCBrwr/2yxQ5BVd/GTl5agOwSg==
+
+rate-limit-redis@^6.0.1:
+  version "6.0.1"
+  resolved "https://registry.yarnpkg.com/rate-limit-redis/-/rate-limit-redis-6.0.1.tgz#d5bbfe3332f880b6115a4dfe25604e0cfb5f808c"
+  integrity sha512-qys7ulbh5X4Bohfjm6BXFWBiyzK6r5eGdFghPWZfJwggnDFTDwCIRq1u7tmN50vLTp4Kbe1h/ZAuBOn/hVpjtQ==
 
 raw-body@^3.0.1:
   version "3.0.2"

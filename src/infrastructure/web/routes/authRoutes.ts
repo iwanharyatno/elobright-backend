@@ -9,8 +9,6 @@ import { ResetPassword } from '../../../use-cases/auth/ResetPassword';
 import { DrizzleUserRepository } from '../../../interface-adapters/repositories/DrizzleUserRepository';
 import { DrizzleStudentRepository } from '../../../interface-adapters/repositories/DrizzleStudentRepository';
 import { NodemailerEmailService } from '../../../infrastructure/email/mailer';
-import { rateLimit } from '../middleware/rateLimiter';
-import { env } from '../../../config/env';
 
 const router = Router();
 
@@ -33,15 +31,11 @@ const authController = new AuthController(
     resetPassword
 );
 
-const authRateLimit = rateLimit({ windowMs: env.RATE_LIMIT_AUTH_WINDOW_MS, max: env.RATE_LIMIT_AUTH_MAX, message: 'Too many auth attempts, please try again later.' });
-const loginRateLimit = rateLimit({ windowMs: env.RATE_LIMIT_LOGIN_WINDOW_MS, max: env.RATE_LIMIT_LOGIN_MAX, message: 'Too many login attempts, please try again later.' });
-const passwordResetRateLimit = rateLimit({ windowMs: env.RATE_LIMIT_PASSWORD_RESET_WINDOW_MS, max: env.RATE_LIMIT_PASSWORD_RESET_MAX, message: 'Too many password reset attempts, please try again later.' });
-
-router.post('/register', authRateLimit, authController.register);
-router.post('/login', loginRateLimit, authController.login);
-router.post('/verify-email', authRateLimit, authController.verifyEmail);
-router.post('/resend-verification', authRateLimit, authController.resendVerification);
-router.post('/forgot-password', passwordResetRateLimit, authController.forgotPassword);
-router.post('/reset-password', passwordResetRateLimit, authController.resetPassword);
+router.post('/register', authController.register);
+router.post('/login', authController.login);
+router.post('/verify-email', authController.verifyEmail);
+router.post('/resend-verification', authController.resendVerification);
+router.post('/forgot-password', authController.forgotPassword);
+router.post('/reset-password', authController.resetPassword);
 
 export { router as authRoutes };

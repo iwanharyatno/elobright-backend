@@ -12,9 +12,8 @@ import { audioTelemetryRoutes } from "./routes/audioTelemetryRoutes";
 import { certificationAdditionalScoreRoutes } from "./routes/certificationAdditionalScoreRoutes";
 import { certificationScoreRoutes } from "./routes/certificationScoreRoutes";
 import { errorHandler } from "./middleware/errorHandler";
-import { rateLimit } from "./middleware/rateLimiter";
+import { apiRateLimiter } from "./middleware/rateLimiter";
 import { requestLogger } from "../logger";
-import { env } from "../../config/env";
 
 export const createServer = () => {
   const app = express();
@@ -38,11 +37,8 @@ export const createServer = () => {
   //   express.static(path.join(__dirname, "../../../uploads"))
   // );
 
-  // General rate limiting for all routes (including non-API)
-  app.use(rateLimit({ windowMs: env.RATE_LIMIT_GLOBAL_WINDOW_MS, max: env.RATE_LIMIT_GLOBAL_MAX, message: 'Too many requests, please try again later.' }));
-
-  // Stricter rate limiting for API routes
-  app.use('/api', rateLimit({ windowMs: env.RATE_LIMIT_API_WINDOW_MS, max: env.RATE_LIMIT_API_MAX, message: 'Too many requests, please try again later.' }));
+  // Single IP-scoped rate limiter shared by every /api route (counters in Redis)
+  app.use('/api', apiRateLimiter);
 
   app.use("/api/auth", authRoutes);
   app.use("/api/exams", examRoutes);

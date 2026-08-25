@@ -18,16 +18,8 @@ const envSchema = z.object({
     REDIS_HOST: z.string().default('localhost'),
     REDIS_PORT: z.coerce.number().default(6379),
     REDIS_PASSWORD: z.string().default(''),
-    RATE_LIMIT_GLOBAL_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
-    RATE_LIMIT_GLOBAL_MAX: z.coerce.number().int().positive().default(200),
-    RATE_LIMIT_API_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
-    RATE_LIMIT_API_MAX: z.coerce.number().int().positive().default(120),
-    RATE_LIMIT_AUTH_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
-    RATE_LIMIT_AUTH_MAX: z.coerce.number().int().positive().default(20),
-    RATE_LIMIT_LOGIN_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
-    RATE_LIMIT_LOGIN_MAX: z.coerce.number().int().positive().default(5),
-    RATE_LIMIT_PASSWORD_RESET_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
-    RATE_LIMIT_PASSWORD_RESET_MAX: z.coerce.number().int().positive().default(5),
+    RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+    RATE_LIMIT_MAX: z.coerce.number().int().positive().default(200),
 });
 
 const isTest = process.env.NODE_ENV === 'test';
@@ -53,15 +45,8 @@ export const env = _env.success ? _env.data : {
     REDIS_HOST: 'localhost',
     REDIS_PORT: 6379,
     REDIS_PASSWORD: '',
-    RATE_LIMIT_GLOBAL_WINDOW_MS: 60_000,
-    RATE_LIMIT_GLOBAL_MAX: 200,
-    RATE_LIMIT_API_WINDOW_MS: 60_000,
-    RATE_LIMIT_API_MAX: 120,
-    RATE_LIMIT_AUTH_WINDOW_MS: 900_000,
-    RATE_LIMIT_AUTH_MAX: 20,
-    RATE_LIMIT_LOGIN_WINDOW_MS: 900_000,
-    RATE_LIMIT_LOGIN_MAX: 5,
-    RATE_LIMIT_PASSWORD_RESET_WINDOW_MS: 900_000,
-    RATE_LIMIT_PASSWORD_RESET_MAX: 5
+    RATE_LIMIT_WINDOW_MS: 60_000,
+    RATE_LIMIT_MAX: 200
 } as z.infer<typeof envSchema>;
+
 

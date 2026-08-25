@@ -1,45 +1,40 @@
-import { Request, Response, NextFunction } from 'express';
+import rateLimit from 'express-rate-limit';
+import { RedisStore, type RedisReply } from 'rate-limit-redis';
+import Redis from 'ioredis';
+import { env } from '../../../config/env';
 
-interface RateLimitOptions {
-    windowMs?: number;
-    max?: number;
-    message?: string;
-    statusCode?: number;
-    keyGenerator?: (req: Request) => string;
-}
+const redisClient = new Redis({
+    host: env.REDIS_HOST,
+    port: env.REDIS_PORT,
+    password: env.REDIS_PASSWORD || undefined,
+    lazyConnect: false,
+    maxRetriesPerRequest: null,
+});
 
-interface RateLimitEntry {
-    count: number;
-    resetAt: number;
-}
+// Never let limiter/redis errors crash the app
+redisClient.on('error', () => {
+    // connection problems are logged by the store failures below; keep silent here
+});
 
-const hits = new Map<string, RateLimitEntry>();
+/**
+ * Single IP-scoped rate limiter shared by every /api route.
+ * Counters live in Redis (prefix `rl:`) so they survive restarts
+ * and are consistent across API instances.
+ */
+export const apiRateLimiter = rateLimit({
+    windowMs: env.RATE_LIMIT_WINDOW_MS,
+    limit: env.RATE_LIMIT_MAX,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req, res) => req.ip || res.locals?.ip || 'unknown',
+    message: { error: 'Too many requests, please try again later.' },
+    store: new RedisStore({
+        sendCommand: async (...args: string[]): Promise<RedisReply> =>
+            (redisClient.call as (...args: unknown[]) => Promise<unknown>)(...args) as Promise<RedisReply>,
+        prefix: 'rl:',
+    }),
+});
 
-export const rateLimit = (options: RateLimitOptions = {}) => {
-    const windowMs = options.windowMs ?? 60_000;
-    const max = options.max ?? 100;
-    const statusCode = options.statusCode ?? 429;
-    const message = options.message ?? 'Too many requests, please try again later.';
-    const keyGenerator = options.keyGenerator ?? ((req: Request) => req.ip || 'unknown');
-    const instanceId = Math.random().toString(36).slice(2);
-
-    return (req: Request, res: Response, next: NextFunction): void => {
-        const key = `${instanceId}:${keyGenerator(req)}`;
-        const now = Date.now();
-
-        const entry = hits.get(key);
-        if (!entry || entry.resetAt <= now) {
-            hits.set(key, { count: 1, resetAt: now + windowMs });
-            next();
-            return;
-        }
-
-        entry.count += 1;
-        if (entry.count > max) {
-            res.status(statusCode).json({ error: message });
-            return;
-        }
-
-        next();
-    };
+export const closeRateLimitRedis = async (): Promise<void> => {
+    await redisClient.quit().catch(() => redisClient.disconnect());
 };
