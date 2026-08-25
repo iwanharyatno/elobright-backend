@@ -76,4 +76,44 @@ export class DrizzleUserRepository implements IUserRepository {
         if (results.length === 0) return null;
         return results[0] as User;
     }
+
+    async updateResetPasswordToken(userId: number, tokenHash: string, expiresAt: Date): Promise<User | null> {
+        const results = await db
+            .update(usersTable)
+            .set({
+                resetPasswordToken: tokenHash,
+                resetPasswordExpiresAt: expiresAt,
+            })
+            .where(eq(usersTable.id, userId))
+            .returning();
+
+        if (results.length === 0) return null;
+        return results[0] as User;
+    }
+
+    async findByResetPasswordToken(tokenHash: string): Promise<User | null> {
+        const results = await db
+            .select()
+            .from(usersTable)
+            .where(eq(usersTable.resetPasswordToken, tokenHash))
+            .limit(1);
+
+        if (results.length === 0) return null;
+        return results[0] as User;
+    }
+
+    async updatePassword(userId: number, passwordHash: string): Promise<User | null> {
+        const results = await db
+            .update(usersTable)
+            .set({
+                passwordHash,
+                resetPasswordToken: null,
+                resetPasswordExpiresAt: null,
+            })
+            .where(eq(usersTable.id, userId))
+            .returning();
+
+        if (results.length === 0) return null;
+        return results[0] as User;
+    }
 }

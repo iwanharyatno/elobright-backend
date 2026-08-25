@@ -34,6 +34,10 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
         return res.status(503).json({ error: err.message });
     }
 
+    if (err.message === 'Passwords do not match' || err.message === 'Invalid or expired reset token') {
+        return res.status(400).json({ error: err.message });
+    }
+
     logger.error(`Unhandled error on ${req.method} ${req.originalUrl}`, {
         errorMessage: err?.message,
         stack: err?.stack,

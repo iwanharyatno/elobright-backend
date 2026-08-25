@@ -1,6 +1,7 @@
-import { Request, Response, NextFunction } from 'express';
+﻿import { Request, Response, NextFunction } from 'express';
 import { ManageQuestionOptions } from '../../use-cases/exam/ManageQuestionOptions';
 import { z } from 'zod';
+import { omitDeletedAt, omitDeletedAtAll } from '../../shared/omitDeletedAt';
 
 const createQuestionOptionSchema = z.object({
     questionId: z.string().uuid(),
@@ -17,7 +18,7 @@ export class QuestionOptionController {
         try {
             const data = createQuestionOptionSchema.parse(req.body);
             const option = await this.manageQuestionOptions.create(data as any);
-            res.status(201).json({ message: 'Question Option created', option });
+            res.status(201).json({ message: 'Question Option created', option: omitDeletedAt(option) });
         } catch (error) {
             next(error);
         }
@@ -29,7 +30,7 @@ export class QuestionOptionController {
             if (!option) {
                 return res.status(404).json({ message: 'Question Option not found' });
             }
-            res.status(200).json(option);
+            res.status(200).json(omitDeletedAt(option));
         } catch (error) {
             next(error);
         }
@@ -38,7 +39,7 @@ export class QuestionOptionController {
     getByQuestionId = async (req: Request<{ questionId: string }>, res: Response, next: NextFunction) => {
         try {
             const options = await this.manageQuestionOptions.getByQuestionId(req.params.questionId);
-            res.status(200).json(options);
+            res.status(200).json(omitDeletedAtAll(options));
         } catch (error) {
             next(error);
         }
@@ -47,10 +48,7 @@ export class QuestionOptionController {
     getByQuestionIdForUser = async (req: Request<{ questionId: string }>, res: Response, next: NextFunction) => {
         try {
             const options = await this.manageQuestionOptions.getByQuestionId(req.params.questionId);
-            const sanitizedOptions = options.map(opt => {
-                const { isCorrect, ...rest } = opt;
-                return rest;
-            });
+            const sanitizedOptions = options.map(({ isCorrect, deletedAt: _deletedAt, ...rest }) => rest);
             res.status(200).json(sanitizedOptions);
         } catch (error) {
             next(error);
@@ -64,7 +62,7 @@ export class QuestionOptionController {
             if (!option) {
                 return res.status(404).json({ message: 'Question Option not found' });
             }
-            res.status(200).json({ message: 'Question Option updated', option });
+            res.status(200).json({ message: 'Question Option updated', option: omitDeletedAt(option) });
         } catch (error) {
             next(error);
         }
@@ -82,3 +80,4 @@ export class QuestionOptionController {
         }
     };
 }
+

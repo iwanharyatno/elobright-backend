@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ManageExams } from '../../use-cases/exam/ManageExams';
 import { z } from 'zod';
+import { omitDeletedAt, omitDeletedAtAll } from '../../shared/omitDeletedAt';
 
 const createExamSchema = z.object({
     title: z.string().max(255).optional().nullable(),
@@ -19,7 +20,7 @@ export class ExamController {
         try {
             const data = createExamSchema.parse(req.body);
             const exam = await this.manageExams.create(data as any);
-            res.status(201).json({ message: 'Exam created', exam });
+            res.status(201).json({ message: 'Exam created', exam: omitDeletedAt(exam) });
         } catch (error) {
             next(error);
         }
@@ -31,7 +32,7 @@ export class ExamController {
             if (!exam) {
                 return res.status(404).json({ message: 'Exam not found' });
             }
-            res.status(200).json(exam);
+            res.status(200).json(omitDeletedAt(exam));
         } catch (error) {
             next(error);
         }
@@ -40,7 +41,7 @@ export class ExamController {
     getAll = async (req: Request, res: Response, next: NextFunction) => {
         try {
             const exams = await this.manageExams.getAll();
-            res.status(200).json(exams);
+            res.status(200).json(omitDeletedAtAll(exams));
         } catch (error) {
             next(error);
         }
@@ -53,7 +54,7 @@ export class ExamController {
             if (!exam) {
                 return res.status(404).json({ message: 'Exam not found' });
             }
-            res.status(200).json({ message: 'Exam updated', exam });
+            res.status(200).json({ message: 'Exam updated', exam: omitDeletedAt(exam) });
         } catch (error) {
             next(error);
         }

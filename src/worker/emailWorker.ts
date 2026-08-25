@@ -1,8 +1,8 @@
 import { Worker, Job } from 'bullmq';
 import nodemailer from 'nodemailer';
 import { env } from '../config/env';
-import { EmailJobData, VerificationJobData, CertificateJobData } from './emailQueue';
-import { verificationEmailTemplate, certificateEmailTemplate } from '../infrastructure/email/emailTemplates';
+import { EmailJobData, VerificationJobData, CertificateJobData, PasswordResetJobData } from './emailQueue';
+import { verificationEmailTemplate, certificateEmailTemplate, passwordResetEmailTemplate } from '../infrastructure/email/emailTemplates';
 import { queueLogger } from '../infrastructure/logger';
 
 const connection = {
@@ -55,6 +55,22 @@ const processCertificateEmail = async (job: Job<CertificateJobData>): Promise<vo
   });
 };
 
+const processPasswordResetEmail = async (job: Job<PasswordResetJobData>): Promise<void> => {
+  const { to, name, resetUrl } = job.data;
+  const transporter = createTransporter();
+
+  if (!env.SMTP_HOST) {
+    throw new Error('SMTP is not configured');
+  }
+
+  await transporter.sendMail({
+    from: env.EMAIL_FROM,
+    to,
+    subject: 'Reset your Elobright password',
+    html: passwordResetEmailTemplate(resetUrl, name),
+  });
+};
+
 export const emailWorker = new Worker<EmailJobData>(
   'email',
   async (job: Job<EmailJobData>) => {
@@ -64,6 +80,9 @@ export const emailWorker = new Worker<EmailJobData>(
         break;
       case 'certificate':
         await processCertificateEmail(job as Job<CertificateJobData>);
+        break;
+      case 'password-reset':
+        await processPasswordResetEmail(job as Job<PasswordResetJobData>);
         break;
       default:
         throw new Error(`Unknown email job type: ${(job.data as any).type}`);

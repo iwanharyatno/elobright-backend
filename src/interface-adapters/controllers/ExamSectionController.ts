@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ManageExamSections } from '../../use-cases/exam/ManageExamSections';
 import { z } from 'zod';
+import { omitDeletedAt, omitDeletedAtAll } from '../../shared/omitDeletedAt';
 
 const createExamSectionSchema = z.object({
     examId: z.string().uuid(),
@@ -23,7 +24,7 @@ export class ExamSectionController {
         try {
             const data = createExamSectionSchema.parse(req.body);
             const section = await this.manageExamSections.create(data as any);
-            res.status(201).json({ message: 'Exam Section created', section });
+            res.status(201).json({ message: 'Exam Section created', section: omitDeletedAt(section) });
         } catch (error) {
             next(error);
         }
@@ -35,7 +36,7 @@ export class ExamSectionController {
             if (!section) {
                 return res.status(404).json({ message: 'Exam Section not found' });
             }
-            res.status(200).json(section);
+            res.status(200).json(omitDeletedAt(section));
         } catch (error) {
             next(error);
         }
@@ -44,7 +45,7 @@ export class ExamSectionController {
     getByExamId = async (req: Request<{ examId: string }>, res: Response, next: NextFunction) => {
         try {
             const sections = await this.manageExamSections.getByExamId(req.params.examId);
-            res.status(200).json(sections);
+            res.status(200).json(omitDeletedAtAll(sections));
         } catch (error) {
             next(error);
         }
@@ -57,7 +58,7 @@ export class ExamSectionController {
             if (!section) {
                 return res.status(404).json({ message: 'Exam Section not found' });
             }
-            res.status(200).json({ message: 'Exam Section updated', section });
+            res.status(200).json({ message: 'Exam Section updated', section: omitDeletedAt(section) });
         } catch (error) {
             next(error);
         }

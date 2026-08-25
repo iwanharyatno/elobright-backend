@@ -7,6 +7,7 @@ import { IExamSectionSubmissionRepository } from '../../domain/repositories/IExa
 import { IExamSectionRepository } from '../../domain/repositories/IExamSectionRepository';
 import { ICertificationScoreRepository } from '../../domain/repositories/ICertificationScoreRepository';
 import { ExamSectionSubmission } from '../../domain/entities/ExamSectionSubmission';
+import { omitDeletedAt } from '../../shared/omitDeletedAt';
 
 export class ManageExamSessions {
     constructor(
@@ -194,7 +195,7 @@ export class ManageExamSessions {
             const section = await this.sectionRepository.findById(ss.examSectionId);
             const questions = await this.questionRepository.findBySectionId(ss.examSectionId);
             const allScore = questions.reduce((sum, q) => sum + (q.points || 0), 0);
-            return { ...ss, allScore, section: section || undefined };
+            return { ...ss, allScore, section: section ? omitDeletedAt(section)! : undefined };
         }));
 
         if (submission.status === 'submitted' || submission.status === 'finished-late') {

@@ -1,6 +1,7 @@
-import { Request, Response, NextFunction } from "express";
+﻿import { Request, Response, NextFunction } from "express";
 import { ManageQuestions } from "../../use-cases/exam/ManageQuestions";
 import { z } from "zod";
+import { omitDeletedAt, omitDeletedAtAll } from '../../shared/omitDeletedAt';
 
 const createQuestionSchema = z.object({
   sectionId: z.string().uuid(),
@@ -32,7 +33,7 @@ export class QuestionController {
         questionAudioFile,
         imageFile,
       );
-      res.status(201).json({ message: "Question created", question });
+      res.status(201).json({ message: "Question created", question: omitDeletedAt(question) });
     } catch (error) {
       next(error);
     }
@@ -48,7 +49,7 @@ export class QuestionController {
       if (!question) {
         return res.status(404).json({ message: "Question not found" });
       }
-      res.status(200).json(question);
+      res.status(200).json(omitDeletedAt(question));
     } catch (error) {
       next(error);
     }
@@ -63,7 +64,7 @@ export class QuestionController {
       const questions = await this.manageQuestions.getBySectionId(
         req.params.sectionId,
       );
-      res.status(200).json(questions);
+      res.status(200).json(omitDeletedAtAll(questions));
     } catch (error) {
       next(error);
     }
@@ -91,7 +92,7 @@ export class QuestionController {
       if (!question) {
         return res.status(404).json({ message: "Question not found" });
       }
-      res.status(200).json({ message: "Question updated", question });
+      res.status(200).json({ message: "Question updated", question: omitDeletedAt(question) });
     } catch (error) {
       next(error);
     }
@@ -142,3 +143,4 @@ export class QuestionController {
     }
   };
 }
+

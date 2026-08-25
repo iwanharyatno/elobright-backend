@@ -3,6 +3,8 @@ import { RegisterUser } from '../../use-cases/auth/RegisterUser';
 import { LoginUser } from '../../use-cases/auth/LoginUser';
 import { VerifyEmail } from '../../use-cases/auth/VerifyEmail';
 import { ResendVerificationCode } from '../../use-cases/auth/ResendVerificationCode';
+import { RequestPasswordReset } from '../../use-cases/auth/RequestPasswordReset';
+import { ResetPassword } from '../../use-cases/auth/ResetPassword';
 import { z } from 'zod';
 
 const registerSchema = z.object({
@@ -37,12 +39,24 @@ const resendVerificationSchema = z.object({
     email: z.string().email(),
 });
 
+const forgotPasswordSchema = z.object({
+    email: z.string().email(),
+});
+
+const resetPasswordSchema = z.object({
+    token: z.string().min(1),
+    new_password: z.string().min(6),
+    confirm_password: z.string().min(6),
+});
+
 export class AuthController {
     constructor(
         private registerUserUseCase: RegisterUser,
         private loginUserUseCase: LoginUser,
         private verifyEmailUseCase: VerifyEmail,
-        private resendVerificationUseCase: ResendVerificationCode
+        private resendVerificationUseCase: ResendVerificationCode,
+        private requestPasswordResetUseCase: RequestPasswordReset,
+        private resetPasswordUseCase: ResetPassword
     ) { }
 
     register = async (req: Request, res: Response, next: NextFunction) => {
@@ -94,6 +108,26 @@ export class AuthController {
             res.status(200).json({
                 message: alreadyVerified ? 'Email is already verified' : 'A new verification code has been sent to your email',
             });
+        } catch (error) {
+            next(error);
+        }
+    };
+
+    forgotPassword = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const { email } = forgotPasswordSchema.parse(req.body);
+            const result = await this.requestPasswordResetUseCase.execute(email);
+            res.status(200).json(result);
+        } catch (error) {
+            next(error);
+        }
+    };
+
+    resetPassword = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const { token, new_password, confirm_password } = resetPasswordSchema.parse(req.body);
+            const result = await this.resetPasswordUseCase.execute(token, new_password, confirm_password);
+            res.status(200).json(result);
         } catch (error) {
             next(error);
         }

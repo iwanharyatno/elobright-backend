@@ -11,5 +11,5 @@ export interface ExamSectionSubmission {
     endTimeLimit: Date | null;
     submittedAt: Date | null;
     allScore?: number; // Dynamic field for max score of section or similar
-    section?: ExamSection;
+    section?: Omit<ExamSection, 'deletedAt'>;
 }

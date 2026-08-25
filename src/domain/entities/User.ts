@@ -8,6 +8,8 @@ export interface User {
     isVerified?: boolean;
     verificationCode?: string | null;
     verificationCodeExpiresAt?: Date | null;
+    resetPasswordToken?: string | null;
+    resetPasswordExpiresAt?: Date | null;
     createdAt: Date;
     updatedAt: Date;
 }
