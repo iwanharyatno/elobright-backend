@@ -8,6 +8,7 @@ const createExamSectionSchema = z.object({
     title: z.string().max(100).optional().nullable(),
     instructions: z.string().optional().nullable(),
     durationMinutes: z.number().int(),
+    weight: z.number().min(0).max(1).nullable().optional(),
     isVisible: z.boolean().optional(),
 });
 

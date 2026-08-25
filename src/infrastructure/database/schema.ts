@@ -41,6 +41,7 @@ export const examSectionsTable = pgTable('exam_sections', {
     instructions: text('instructions'),
     orderIndex: integer('order_index'),
     durationMinutes: integer('duration_minutes').default(0),
+    weight: doublePrecision('weight'),
     isVisible: boolean('is_visible').default(true).notNull(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
 });
@@ -122,5 +123,5 @@ export const certificationScoresTable = pgTable('certification_score', {
     userId: integer('user_id').references(() => usersTable.id).notNull(),
     examSubmissionId: uuid('exam_submission_id').references(() => examSubmissionsTable.id).notNull().unique(),
     additionalScore: jsonb('additional_score'),
-    examScoreOverride: doublePrecision('exam_score_override'),
+    examScoreOverride: jsonb('exam_score_override'),
 });

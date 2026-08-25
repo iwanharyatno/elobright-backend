@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 const updateSchema = z.object({
     additional_score: z.record(z.string(), z.number().min(0).max(100)).optional(),
-    exam_score_override: z.number().min(0).max(100).nullable().optional(),
+    exam_score_override: z.record(z.string().uuid(), z.number().min(0).max(100)).nullable().optional(),
 });
 
 const blastEmailSchema = z.object({

@@ -1,4 +1,4 @@
-import { ManageCertificationScores } from '../../../../src/use-cases/certification/ManageCertificationScores';
+﻿import { ManageCertificationScores } from '../../../../src/use-cases/certification/ManageCertificationScores';
 import { ICertificationScoreRepository } from '../../../../src/domain/repositories/ICertificationScoreRepository';
 import { ICertificationAdditionalScoreRepository } from '../../../../src/domain/repositories/ICertificationAdditionalScoreRepository';
 import { IExamSectionSubmissionRepository } from '../../../../src/domain/repositories/IExamSectionSubmissionRepository';
@@ -6,6 +6,7 @@ import { IExamSectionRepository } from '../../../../src/domain/repositories/IExa
 import { IQuestionRepository } from '../../../../src/domain/repositories/IQuestionRepository';
 import { IExamSubmissionRepository } from '../../../../src/domain/repositories/IExamSubmissionRepository';
 import { IExamRepository } from '../../../../src/domain/repositories/IExamRepository';
+import { IStudentRepository } from '../../../../src/domain/repositories/IStudentRepository';
 import { CertificationScore } from '../../../../src/domain/entities/CertificationScore';
 
 describe('ManageCertificationScores Use Case', () => {
@@ -17,6 +18,7 @@ describe('ManageCertificationScores Use Case', () => {
     let mockQuestionRepo: jest.Mocked<IQuestionRepository>;
     let mockSubmissionRepo: jest.Mocked<IExamSubmissionRepository>;
     let mockExamRepo: jest.Mocked<IExamRepository>;
+    let mockStudentRepo: jest.Mocked<IStudentRepository>;
 
     const baseScore: CertificationScore = {
         id: 'cert-1',
@@ -92,6 +94,12 @@ describe('ManageCertificationScores Use Case', () => {
             delete: jest.fn()
         } as unknown as jest.Mocked<IExamRepository>;
 
+        mockStudentRepo = {
+            create: jest.fn(),
+            findByUserId: jest.fn().mockResolvedValue(null),
+            findAll: jest.fn()
+        } as unknown as jest.Mocked<IStudentRepository>;
+
         manageCertificationScores = new ManageCertificationScores(
             mockCertificationScoreRepo,
             mockAdditionalScoreRepo,
@@ -99,7 +107,8 @@ describe('ManageCertificationScores Use Case', () => {
             mockSectionRepo,
             mockQuestionRepo,
             mockSubmissionRepo,
-            mockExamRepo
+            mockExamRepo,
+            mockStudentRepo
         );
     });
 
@@ -109,7 +118,7 @@ describe('ManageCertificationScores Use Case', () => {
         const result = await manageCertificationScores.getAll();
 
         expect(mockCertificationScoreRepo.findAll).toHaveBeenCalledWith();
-        expect(result).toEqual([{ ...baseScore, originalExamScore: 0 }]);
+        expect(result).toEqual([{ ...baseScore, originalExamScore: 0, totalScore: 0, scores: [], overrides: [] }]);
     });
 
     it('should filter certification scores by exam submission id', async () => {
@@ -118,15 +127,18 @@ describe('ManageCertificationScores Use Case', () => {
         const result = await manageCertificationScores.getAll('sub-1');
 
         expect(mockCertificationScoreRepo.findByExamSubmissionId).toHaveBeenCalledWith('sub-1');
-        expect(result).toEqual([{ ...baseScore, originalExamScore: 0 }]);
+        expect(result).toEqual([{ ...baseScore, originalExamScore: 0, totalScore: 0, scores: [], overrides: [] }]);
     });
 
-    it('should compute originalExamScore scaled to 0-100 across all exam sections', async () => {
-        // attempted: section-1 totalScore 18; exam has section-1 (20 pts) + section-2 (10 pts) -> 18/30 = 60
+    it('should compute originalExamScore using per-section weights with equal-split remainder', async () => {
+        // section-1 (weight 0.5, explicit): 18/20 pts -> 90
+        // section-2 (NULL weight): shares remaining 0.5 -> 6/10 pts -> 60
+        // weighted exam score = 90*0.5 + 60*0.5 = 75
         const scoreWithExam = { ...baseScore, id: 'cert-exam' };
         mockCertificationScoreRepo.findAll.mockResolvedValue([scoreWithExam]);
         mockSectionSubmissionRepo.findBySubmissionId.mockResolvedValue([
             { id: 'ss-1', submissionId: 'sub-1', examSectionId: 'section-1', totalScore: 18 },
+            { id: 'ss-2', submissionId: 'sub-1', examSectionId: 'section-2', totalScore: 6 },
         ] as any);
         mockSubmissionRepo.findById.mockResolvedValue({
             id: 'sub-1', userId: 1, examId: 'exam-1', status: 'submitted',
@@ -134,8 +146,8 @@ describe('ManageCertificationScores Use Case', () => {
         });
         mockExamRepo.findById.mockResolvedValue({ id: 'exam-1', title: 'TOEFL', type: 'TOEFL', isOnce: false });
         mockSectionRepo.findByExamId.mockResolvedValue([
-            { id: 'section-1', examId: 'exam-1', title: null, instructions: null, orderIndex: 0, durationMinutes: 30 },
-            { id: 'section-2', examId: 'exam-1', title: null, instructions: null, orderIndex: 1, durationMinutes: 30 },
+            { id: 'section-1', examId: 'exam-1', title: 'Reading', instructions: null, orderIndex: 0, durationMinutes: 30, weight: 0.5 },
+            { id: 'section-2', examId: 'exam-1', title: 'Listening', instructions: null, orderIndex: 1, durationMinutes: 30, weight: null },
         ]);
         mockQuestionRepo.findBySectionId.mockImplementation(async (sectionId: string) =>
             sectionId === 'section-1'
@@ -145,7 +157,49 @@ describe('ManageCertificationScores Use Case', () => {
 
         const result = await manageCertificationScores.getAll();
 
-        expect(result[0].originalExamScore).toBe(60);
+        expect(result[0].originalExamScore).toBe(75);
+        expect(result[0].totalScore).toBe(75); // no additional scores -> final equals weighted exam
+        expect(result[0].overrides).toEqual([]);
+        expect(result[0].scores).toHaveLength(2);
+
+        const reading = result[0].scores!.find(s => s.sectionId === 'section-1')!;
+        const listening = result[0].scores!.find(s => s.sectionId === 'section-2')!;
+        expect(reading).toEqual({ sectionId: 'section-1', sectionName: 'Reading', correctPoints: 18, fullPoints: 20, scaledScore: 90 });
+        expect(listening).toEqual({ sectionId: 'section-2', sectionName: 'Listening', correctPoints: 6, fullPoints: 10, scaledScore: 60 });
+    });
+
+    it('should apply per-section overrides in the response breakdown', async () => {
+        // override replaces listening's computed 60 with 100 -> weighted = 45 + 50 = 95
+        const scoreWithOverride = { ...baseScore, examScoreOverride: { 'section-2': 100 } };
+        mockCertificationScoreRepo.findAll.mockResolvedValue([scoreWithOverride]);
+        mockSectionSubmissionRepo.findBySubmissionId.mockResolvedValue([
+            { id: 'ss-1', submissionId: 'sub-1', examSectionId: 'section-1', totalScore: 18 },
+            { id: 'ss-2', submissionId: 'sub-1', examSectionId: 'section-2', totalScore: 6 },
+        ] as any);
+        mockSubmissionRepo.findById.mockResolvedValue({
+            id: 'sub-1', userId: 1, examId: 'exam-1', status: 'submitted',
+            timezone: null, startedAt: new Date(), submittedAt: new Date()
+        });
+        mockExamRepo.findById.mockResolvedValue({ id: 'exam-1', title: 'TOEFL', type: 'TOEFL', isOnce: false });
+        mockSectionRepo.findByExamId.mockResolvedValue([
+            { id: 'section-1', examId: 'exam-1', title: null, instructions: null, orderIndex: 0, durationMinutes: 30, weight: 0.5 },
+            { id: 'section-2', examId: 'exam-1', title: null, instructions: null, orderIndex: 1, durationMinutes: 30, weight: null },
+        ]);
+        mockQuestionRepo.findBySectionId.mockImplementation(async (sectionId: string) =>
+            sectionId === 'section-1'
+                ? ([{ points: 10 }, { points: 5 }, { points: 5 }] as any)
+                : ([{ points: 4 }, { points: 3 }, { points: 3 }] as any)
+        );
+
+        const result = await manageCertificationScores.getAll();
+
+        expect(result[0].originalExamScore).toBe(95);
+        // scores[] keeps the COMPUTED scaled score; overrides[] carries the replacement
+        const listeningScore = result[0].scores!.find(s => s.sectionId === 'section-2')!;
+        expect(listeningScore.scaledScore).toBe(60);
+        expect(result[0].overrides).toEqual([
+            { sectionId: 'section-2', sectionName: null, overriddenScore: 100 },
+        ]);
     });
 
     it('should return originalExamScore of 0 when the submission has no section submissions', async () => {
@@ -207,18 +261,19 @@ describe('ManageCertificationScores Use Case', () => {
 
     it('should update the exam score override', async () => {
         mockCertificationScoreRepo.findById.mockResolvedValue(baseScore);
-        const mockUpdated = { ...baseScore, examScoreOverride: 88 } as CertificationScore;
+        const overrideMap = { 'section-1': 88 };
+        const mockUpdated = { ...baseScore, examScoreOverride: overrideMap };
         mockCertificationScoreRepo.updateExamScoreOverride.mockResolvedValue(mockUpdated);
 
-        const result = await manageCertificationScores.update('cert-1', { examScoreOverride: 88 });
+        const result = await manageCertificationScores.update('cert-1', { examScoreOverride: overrideMap });
 
-        expect(mockCertificationScoreRepo.updateExamScoreOverride).toHaveBeenCalledWith('cert-1', 88);
+        expect(mockCertificationScoreRepo.updateExamScoreOverride).toHaveBeenCalledWith('cert-1', overrideMap);
         expect(mockCertificationScoreRepo.updateAdditionalScore).not.toHaveBeenCalled();
         expect(result).toEqual(mockUpdated);
     });
 
     it('should clear the exam score override when null is provided', async () => {
-        mockCertificationScoreRepo.findById.mockResolvedValue({ ...baseScore, examScoreOverride: 88 });
+        mockCertificationScoreRepo.findById.mockResolvedValue({ ...baseScore, examScoreOverride: { 'section-1': 88 } });
         const mockUpdated = { ...baseScore, examScoreOverride: null } as CertificationScore;
         mockCertificationScoreRepo.updateExamScoreOverride.mockResolvedValue(mockUpdated);
 
@@ -240,17 +295,17 @@ describe('ManageCertificationScores Use Case', () => {
         mockCertificationScoreRepo.updateExamScoreOverride.mockResolvedValue({
             ...baseScore,
             additionalScore: { class_speaking_score: 90 },
-            examScoreOverride: 85,
+            examScoreOverride: { 'section-1': 85 },
         });
 
         const result = await manageCertificationScores.update('cert-1', {
             additionalScore: { class_speaking_score: 90 },
-            examScoreOverride: 85,
+            examScoreOverride: { 'section-1': 85 },
         });
 
         expect(mockCertificationScoreRepo.updateAdditionalScore).toHaveBeenCalledWith('cert-1', { class_speaking_score: 90 });
-        expect(mockCertificationScoreRepo.updateExamScoreOverride).toHaveBeenCalledWith('cert-1', 85);
-        expect(result).toEqual({ ...baseScore, additionalScore: { class_speaking_score: 90 }, examScoreOverride: 85 });
+        expect(mockCertificationScoreRepo.updateExamScoreOverride).toHaveBeenCalledWith('cert-1', { 'section-1': 85 });
+        expect(result).toEqual({ ...baseScore, additionalScore: { class_speaking_score: 90 }, examScoreOverride: { 'section-1': 85 } });
     });
 
     it('should throw when a key does not match a configured score name', async () => {
@@ -266,7 +321,7 @@ describe('ManageCertificationScores Use Case', () => {
     it('should throw when certification score is not found', async () => {
         mockCertificationScoreRepo.findById.mockResolvedValue(null);
 
-        await expect(manageCertificationScores.update('missing', { examScoreOverride: 90 }))
+        await expect(manageCertificationScores.update('missing', { examScoreOverride: { 'section-1': 90 } }))
             .rejects.toThrow('Certification score not found');
     });
 });

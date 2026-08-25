@@ -5,6 +5,7 @@ export interface ExamSection {
     instructions: string | null;
     orderIndex: number | null;
     durationMinutes: number;
+    weight?: number | null;
     isVisible?: boolean;
     deletedAt?: Date | null;
 }

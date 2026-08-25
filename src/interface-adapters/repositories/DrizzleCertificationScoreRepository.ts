@@ -3,11 +3,13 @@ import { db } from '../../infrastructure/database/db';
 import { certificationScoresTable, usersTable } from '../../infrastructure/database/schema';
 import { ICertificationScoreRepository } from '../../domain/repositories/ICertificationScoreRepository';
 import { CertificationScore, CertificationScoreWithUser } from '../../domain/entities/CertificationScore';
-
-const toPublicUser = (user: typeof usersTable.$inferSelect) => {
-    const { passwordHash: _passwordHash, verificationCode: _verificationCode, ...publicUser } = user;
-    return publicUser;
-};
+const toPublicUser = (user: typeof usersTable.$inferSelect) => ({
+    id: user.id,
+    email: user.email,
+    fullName: user.fullName,
+    role: user.role,
+    phoneNumber: user.phoneNumber,
+});
 
 export class DrizzleCertificationScoreRepository implements ICertificationScoreRepository {
     async createForSubmission(userId: number, examSubmissionId: string): Promise<CertificationScore | null> {
@@ -27,12 +29,17 @@ export class DrizzleCertificationScoreRepository implements ICertificationScoreR
         return (score as CertificationScore) || null;
     }
 
-    async findByExamSubmissionId(examSubmissionId: string): Promise<CertificationScore | null> {
-        const [score] = await db
-            .select()
+    async findByExamSubmissionId(examSubmissionId: string): Promise<CertificationScoreWithUser | null> {
+        const [row] = await db
+            .select({ score: certificationScoresTable, user: usersTable })
             .from(certificationScoresTable)
+            .leftJoin(usersTable, eq(certificationScoresTable.userId, usersTable.id))
             .where(eq(certificationScoresTable.examSubmissionId, examSubmissionId));
-        return (score as CertificationScore) || null;
+        if (!row) return null;
+        return {
+            ...(row.score as CertificationScore),
+            user: row.user ? toPublicUser(row.user) : undefined,
+        };
     }
 
     async findAll(): Promise<CertificationScoreWithUser[]> {
@@ -55,7 +62,7 @@ export class DrizzleCertificationScoreRepository implements ICertificationScoreR
         return (updated as CertificationScore) || null;
     }
 
-    async updateExamScoreOverride(id: string, examScoreOverride: number | null): Promise<CertificationScore | null> {
+    async updateExamScoreOverride(id: string, examScoreOverride: Record<string, number> | null): Promise<CertificationScore | null> {
         const [updated] = await db
             .update(certificationScoresTable)
             .set({ examScoreOverride })

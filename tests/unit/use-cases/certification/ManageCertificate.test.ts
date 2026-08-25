@@ -131,20 +131,20 @@ describe('ManageCertificate Use Case', () => {
             mockAdditionalScoreRepo.findAll.mockResolvedValue([
                 { id: 'as-1', scoreName: 'class_speaking_score', weight: 0.3 },
             ]);
-            // override exists -> no section/question queries
+            // exam with no sections -> empty breakdown
+            mockSectionRepo.findByExamId.mockResolvedValue([]);
             mockSectionSubmissionRepo.findBySubmissionId.mockResolvedValue([]);
 
             const result = await manageCertificate.getPdf('cert-1');
 
             expect(mockCertScoreRepo.findById).toHaveBeenCalledWith('cert-1');
-            expect(mockSectionSubmissionRepo.findBySubmissionId).not.toHaveBeenCalled();
             expect(result.fullName).toBe('John Doe');
             expect(result.email).toBe('user@example.com');
             expect(Buffer.isBuffer(result.buffer)).toBe(true);
             expect(result.buffer.length).toBeGreaterThan(1000);
         });
 
-        it('should compute the fallback exam score from section submissions when no override', async () => {
+        it('should compute the weighted exam score from section submissions when no override', async () => {
             mockCertScoreRepo.findById.mockResolvedValue({ ...certScore, examScoreOverride: null } as any);
             mockUserRepo.findById.mockResolvedValue(user as any);
             mockSubmissionRepo.findById.mockResolvedValue({ id: 'sub-1', examId: 'exam-1' } as any);
@@ -153,7 +153,11 @@ describe('ManageCertificate Use Case', () => {
                 { id: 'ss-1', submissionId: 'sub-1', examSectionId: 'section-1', totalScore: 18 },
                 { id: 'ss-2', submissionId: 'sub-1', examSectionId: 'section-2', totalScore: 9 },
             ] as any);
-            mockSectionRepo.findById.mockImplementation(async (id) => ({ id, examId: 'exam-1' } as any));
+            // section-1 weight 0.5 explicit, section-2 NULL -> equal-split remainder 0.5
+            mockSectionRepo.findByExamId.mockResolvedValue([
+                { id: 'section-1', examId: 'exam-1', title: 'Reading', instructions: null, orderIndex: 0, durationMinutes: 30, weight: 0.5 },
+                { id: 'section-2', examId: 'exam-1', title: 'Listening', instructions: null, orderIndex: 1, durationMinutes: 30, weight: null },
+            ] as any);
             mockQuestionRepo.findBySectionId.mockImplementation(async (sectionId) =>
                 sectionId === 'section-1'
                     ? ([{ id: 'q1', sectionId, points: 5 }, { id: 'q2', sectionId, points: 5 }, { id: 'q3', sectionId, points: 5 }] as any)
@@ -165,8 +169,9 @@ describe('ManageCertificate Use Case', () => {
 
             const result = await manageCertificate.getPdf('cert-1');
 
+            expect(mockSectionRepo.findByExamId).toHaveBeenCalledWith('exam-1');
             expect(mockSectionSubmissionRepo.findBySubmissionId).toHaveBeenCalledWith('sub-1');
-            // examScore = 27 / 24 * 100 = 112.5; examWeight = 0.7; final = 78.75 + 95*0.3 = 107.25
+            // reading 18/15=120 x 0.5 + listening 9/9=100 x 0.5 -> weighted exam 110; final 110 + 95*0.3 = 138.5
             expect(result.buffer.length).toBeGreaterThan(1000);
         });
 

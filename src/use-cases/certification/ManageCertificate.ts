@@ -9,7 +9,7 @@ import { IExamRepository } from '../../domain/repositories/IExamRepository';
 import { IEmailService } from '../../domain/repositories/IEmailService';
 import { User } from '../../domain/entities/User';
 import { CertificationScore } from '../../domain/entities/CertificationScore';
-import { computeCertificateScore } from './certificateComputation';
+import { computeCertificateScore, SectionScoreInput, SectionWeightInput } from './certificateComputation';
 import { createCertificatePdf, CertificatePdfData } from '../../infrastructure/pdf/certificatePdf';
 
 export class ManageCertificate {
@@ -65,29 +65,33 @@ export class ManageCertificate {
         const submission = await this.submissionRepository.findById(score.examSubmissionId);
         const exam = submission ? await this.examRepository.findById(submission.examId) : null;
 
-        let examScore = 0;
-        let maxScore = 0;
+        let sections: SectionScoreInput[] = [];
+        let weights: SectionWeightInput[] = [];
+        let sectionTitles = new Map<string, string>();
 
-        if (score.examScoreOverride == null) {
+        if (exam) {
+            const examSections = await this.sectionRepository.findByExamId(exam.id);
             const sectionSubmissions = await this.sectionSubmissionRepository.findBySubmissionId(score.examSubmissionId);
-            const sectionIds = [...new Set(sectionSubmissions.map(ss => ss.examSectionId))];
-            const sections = await Promise.all(sectionIds.map(id => this.sectionRepository.findById(id)));
+            const totalBySection = new Map(sectionSubmissions.map(ss => [ss.examSectionId, ss.totalScore || 0]));
 
-            for (const ss of sectionSubmissions) {
-                examScore += ss.totalScore || 0;
-                const section = sections.find(s => s?.id === ss.examSectionId);
-                if (section) {
-                    const questions = await this.questionRepository.findBySectionId(section.id);
-                    maxScore += questions.reduce((sum, q) => sum + (q.points || 0), 0);
-                }
-            }
+            weights = examSections.map(s => ({ examSectionId: s.id, weight: s.weight ?? null }));
+            sectionTitles = new Map(examSections.map(s => [s.id, s.title || s.id]));
+            sections = await Promise.all(examSections.map(async (s) => {
+                const questions = await this.questionRepository.findBySectionId(s.id);
+                const maxPoints = questions.reduce((sum, q) => sum + (q.points || 0), 0);
+                return {
+                    examSectionId: s.id,
+                    totalScore: totalBySection.get(s.id) ?? 0,
+                    maxPoints,
+                };
+            }));
         }
 
         const configs = await this.additionalScoreRepository.findAll();
-        const { examScore: resolvedExamScore, finalScore } = computeCertificateScore({
-            examScoreOverride: score.examScoreOverride ?? null,
-            examScore,
-            maxScore,
+        const { examSections: breakdown, weightedExamScore, finalScore } = computeCertificateScore({
+            sections,
+            weights,
+            overrides: score.examScoreOverride ?? null,
             additionalScore: score.additionalScore,
             additionalConfigs: configs.map(c => ({ scoreName: c.scoreName, weight: c.weight })),
         });
@@ -96,9 +100,14 @@ export class ManageCertificate {
             fullName: user.fullName || user.email,
             email: user.email,
             examTitle: exam?.title || null,
-            examScore: resolvedExamScore,
-            maxScore,
+            examScore: weightedExamScore,
             finalScore,
+            sectionScores: breakdown.map(b => ({
+                title: sectionTitles.get(b.examSectionId) || b.examSectionId,
+                scaledScore: b.scaledScore,
+                effectiveWeight: b.effectiveWeight,
+                overridden: b.overridden,
+            })),
             additionalScores: score.additionalScore,
         };
     }

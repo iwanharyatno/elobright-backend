@@ -2,13 +2,20 @@ import PDFDocument from 'pdfkit';
 import path from 'path';
 import fs from 'fs';
 
+export interface CertificateSectionScore {
+    title: string;
+    scaledScore: number;
+    effectiveWeight: number;
+    overridden: boolean;
+}
+
 export interface CertificatePdfData {
     fullName: string;
     email: string;
     examTitle: string | null;
     examScore: number;
-    maxScore: number;
     finalScore: number;
+    sectionScores?: CertificateSectionScore[];
     additionalScores: Record<string, number> | null;
 }
 
@@ -57,14 +64,22 @@ export const createCertificatePdf = async (data: CertificatePdfData): Promise<Bu
 
     drawCentered(`Total Score: ${formatScore(data.finalScore)}`, pageHeight * 0.62, 28, 'Helvetica-Bold', '#1e3a5f');
 
-    if (data.additionalScores && Object.keys(data.additionalScores).length > 0) {
-        const breakdown = Object.entries(data.additionalScores)
-            .map(([name, value]) => `${name}: ${value}`)
-            .join('    ');
-        drawCentered(`Exam Score: ${formatScore(data.examScore)}    ${breakdown}`, pageHeight * 0.7, 12, 'Helvetica', '#555555');
+    const sectionLines: string[] = (data.sectionScores || []).map(s =>
+        `${s.title}: ${formatScore(s.scaledScore)}${s.overridden ? ' *' : ''} (weight ${Math.round(s.effectiveWeight * 100)}%)`
+    );
+    if (sectionLines.length > 0) {
+        sectionLines.push(`Exam Score (weighted): ${formatScore(data.examScore)}${(data.sectionScores || []).some(s => s.overridden) ? ' *' : ''}`);
     } else {
-        drawCentered(`Exam Score: ${formatScore(data.examScore)}`, pageHeight * 0.7, 12, 'Helvetica', '#555555');
+        sectionLines.push(`Exam Score: ${formatScore(data.examScore)}`);
     }
+
+    if (data.additionalScores && Object.keys(data.additionalScores).length > 0) {
+        sectionLines.push(...Object.entries(data.additionalScores).map(([name, value]) => `${name}: ${value}`));
+    }
+
+    sectionLines.forEach((line, index) => {
+        drawCentered(line, pageHeight * 0.7 + index * pageHeight * 0.03, 12, 'Helvetica', '#555555');
+    });
 
     drawCentered(`Issued to ${data.email}`, pageHeight * 0.88, 10, 'Helvetica', '#888888');
 
