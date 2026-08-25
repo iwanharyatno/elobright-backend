@@ -3,4 +3,6 @@ export interface Exam {
     title: string | null;
     type: string | null;
     isOnce: boolean;
+    isVisible?: boolean;
+    deletedAt?: Date | null;
 }

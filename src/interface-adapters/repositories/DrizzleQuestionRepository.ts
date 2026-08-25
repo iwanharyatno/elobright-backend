@@ -2,7 +2,7 @@ import { IQuestionRepository } from '../../domain/repositories/IQuestionReposito
 import { Question } from '../../domain/entities/Question';
 import { db } from '../../infrastructure/database/db';
 import { questionsTable } from '../../infrastructure/database/schema';
-import { eq, max, and, inArray } from 'drizzle-orm';
+import { eq, max, and, inArray, isNull } from 'drizzle-orm';
 
 export class DrizzleQuestionRepository implements IQuestionRepository {
     async create(data: Omit<Question, 'id'>): Promise<Question> {
@@ -11,7 +11,8 @@ export class DrizzleQuestionRepository implements IQuestionRepository {
     }
 
     async findById(id: string): Promise<Question | null> {
-        const [question] = await db.select().from(questionsTable).where(eq(questionsTable.id, id));
+        const [question] = await db.select().from(questionsTable)
+            .where(and(eq(questionsTable.id, id), isNull(questionsTable.deletedAt)));
         return (question as Question) || null;
     }
 
@@ -21,7 +22,8 @@ export class DrizzleQuestionRepository implements IQuestionRepository {
             .where(
                 and(
                     eq(questionsTable.sectionId, sectionId),
-                    eq(questionsTable.isActive, true)
+                    eq(questionsTable.isActive, true),
+                    isNull(questionsTable.deletedAt)
                 )
             )
             .orderBy(questionsTable.orderIndex);
@@ -32,20 +34,23 @@ export class DrizzleQuestionRepository implements IQuestionRepository {
         if (ids.length === 0) return [];
         const questions = await db.select()
             .from(questionsTable)
-            .where(inArray(questionsTable.id, ids));
+            .where(and(inArray(questionsTable.id, ids), isNull(questionsTable.deletedAt)));
         return questions as Question[];
     }
 
     async update(id: string, data: Partial<Omit<Question, 'id'>>): Promise<Question | null> {
         const [updatedQuestion] = await db.update(questionsTable)
             .set(data)
-            .where(eq(questionsTable.id, id))
+            .where(and(eq(questionsTable.id, id), isNull(questionsTable.deletedAt)))
             .returning();
         return (updatedQuestion as Question) || null;
     }
 
     async delete(id: string): Promise<boolean> {
-        const result = await db.delete(questionsTable).where(eq(questionsTable.id, id)).returning();
+        const result = await db.update(questionsTable)
+            .set({ deletedAt: new Date() })
+            .where(and(eq(questionsTable.id, id), isNull(questionsTable.deletedAt)))
+            .returning();
         return result.length > 0;
     }
 
@@ -85,7 +90,7 @@ export class DrizzleQuestionRepository implements IQuestionRepository {
     async getMaxOrderIndex(sectionId: string): Promise<number> {
         const [result] = await db.select({ maxValue: max(questionsTable.orderIndex) })
             .from(questionsTable)
-            .where(eq(questionsTable.sectionId, sectionId));
+            .where(and(eq(questionsTable.sectionId, sectionId), isNull(questionsTable.deletedAt)));
         return result?.maxValue ?? 0;
     }
 }

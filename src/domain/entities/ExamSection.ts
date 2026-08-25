@@ -5,4 +5,6 @@ export interface ExamSection {
     instructions: string | null;
     orderIndex: number | null;
     durationMinutes: number;
+    isVisible?: boolean;
+    deletedAt?: Date | null;
 }

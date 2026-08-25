@@ -7,6 +7,7 @@ const createExamSectionSchema = z.object({
     title: z.string().max(100).optional().nullable(),
     instructions: z.string().optional().nullable(),
     durationMinutes: z.number().int(),
+    isVisible: z.boolean().optional(),
 });
 
 const updateExamSectionSchema = createExamSectionSchema.partial();

@@ -10,4 +10,5 @@ export interface Question {
     points: number | null;
     orderIndex: number | null;
     isActive: boolean;
+    deletedAt?: Date | null;
 }

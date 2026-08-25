@@ -28,6 +28,8 @@ export const examsTable = pgTable('exams', {
     title: varchar('title', { length: 255 }),
     type: varchar('type', { length: 50 }),
     isOnce: boolean('is_once').default(false).notNull(),
+    isVisible: boolean('is_visible').default(true).notNull(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
 });
 
 export const examSectionsTable = pgTable('exam_sections', {
@@ -37,6 +39,8 @@ export const examSectionsTable = pgTable('exam_sections', {
     instructions: text('instructions'),
     orderIndex: integer('order_index'),
     durationMinutes: integer('duration_minutes').default(0),
+    isVisible: boolean('is_visible').default(true).notNull(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
 });
 
 export const questionsTable = pgTable('questions', {
@@ -51,6 +55,7 @@ export const questionsTable = pgTable('questions', {
     points: integer('points').default(1),
     orderIndex: integer('order_index'),
     isActive: boolean('is_active').default(true).notNull(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
 });
 
 export const questionOptionsTable = pgTable('question_options', {
@@ -58,6 +63,7 @@ export const questionOptionsTable = pgTable('question_options', {
     questionId: uuid('question_id').references(() => questionsTable.id).notNull(),
     optionText: text('option_text'),
     isCorrect: boolean('is_correct').default(false),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
 });
 
 export const examSubmissionsTable = pgTable('exam_submissions', {

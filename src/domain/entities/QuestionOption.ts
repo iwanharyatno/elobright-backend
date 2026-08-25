@@ -3,4 +3,5 @@ export interface QuestionOption {
     questionId: string;
     optionText: string | null;
     isCorrect: boolean | null;
+    deletedAt?: Date | null;
 }

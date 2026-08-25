@@ -2,7 +2,7 @@ import { IExamSectionRepository } from '../../domain/repositories/IExamSectionRe
 import { ExamSection } from '../../domain/entities/ExamSection';
 import { db } from '../../infrastructure/database/db';
 import { examSectionsTable } from '../../infrastructure/database/schema';
-import { eq, and, sql, max } from 'drizzle-orm';
+import { eq, and, sql, max, isNull } from 'drizzle-orm';
 
 export class DrizzleExamSectionRepository implements IExamSectionRepository {
     async create(data: Omit<ExamSection, 'id'>): Promise<ExamSection> {
@@ -11,14 +11,19 @@ export class DrizzleExamSectionRepository implements IExamSectionRepository {
     }
 
     async findById(id: string): Promise<ExamSection | null> {
-        const [section] = await db.select().from(examSectionsTable).where(eq(examSectionsTable.id, id));
+        const [section] = await db.select().from(examSectionsTable)
+            .where(and(eq(examSectionsTable.id, id), isNull(examSectionsTable.deletedAt)));
         return (section as ExamSection) || null;
     }
 
     async findByExamId(examId: string): Promise<ExamSection[]> {
         const sections = await db.select()
             .from(examSectionsTable)
-            .where(eq(examSectionsTable.examId, examId))
+            .where(and(
+                eq(examSectionsTable.examId, examId),
+                isNull(examSectionsTable.deletedAt),
+                eq(examSectionsTable.isVisible, true)
+            ))
             .orderBy(examSectionsTable.orderIndex);
         return sections as ExamSection[];
     }
@@ -26,13 +31,16 @@ export class DrizzleExamSectionRepository implements IExamSectionRepository {
     async update(id: string, data: Partial<Omit<ExamSection, 'id'>>): Promise<ExamSection | null> {
         const [updatedSection] = await db.update(examSectionsTable)
             .set(data)
-            .where(eq(examSectionsTable.id, id))
+            .where(and(eq(examSectionsTable.id, id), isNull(examSectionsTable.deletedAt)))
             .returning();
         return (updatedSection as ExamSection) || null;
     }
 
     async delete(id: string): Promise<boolean> {
-        const result = await db.delete(examSectionsTable).where(eq(examSectionsTable.id, id)).returning();
+        const result = await db.update(examSectionsTable)
+            .set({ deletedAt: new Date() })
+            .where(and(eq(examSectionsTable.id, id), isNull(examSectionsTable.deletedAt)))
+            .returning();
         return result.length > 0;
     }
 
@@ -72,7 +80,7 @@ export class DrizzleExamSectionRepository implements IExamSectionRepository {
     async getMaxOrderIndex(examId: string): Promise<number> {
         const [result] = await db.select({ maxValue: max(examSectionsTable.orderIndex) })
             .from(examSectionsTable)
-            .where(eq(examSectionsTable.examId, examId));
+            .where(and(eq(examSectionsTable.examId, examId), isNull(examSectionsTable.deletedAt)));
         return result?.maxValue ?? 0;
     }
 }

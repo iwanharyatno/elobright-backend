@@ -7,6 +7,7 @@ const createExamSchema = z.object({
     type: z.string().max(50).optional().nullable(),
     durationMinutes: z.number().int().optional().nullable(),
     isOnce: z.boolean().optional(),
+    isVisible: z.boolean().optional(),
 });
 
 const updateExamSchema = createExamSchema.partial();
