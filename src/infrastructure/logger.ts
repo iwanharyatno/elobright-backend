@@ -77,6 +77,7 @@ export const requestLogger = (req: any, res: any, next: any) => {
             statusCode: res.statusCode,
             duration: `${duration}ms`,
             ip: req.ip,
+            ips: req.ips,
             userAgent: req.get('user-agent'),
         };
 
