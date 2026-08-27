@@ -7,4 +7,5 @@ export interface IExamSubmissionRepository {
     findByUserAndExam(userId: number, examId: string): Promise<ExamSubmission[]>;
     findByUserId(userId: number): Promise<ExamSubmission[]>;
     findAllWithDetails(): Promise<ExamSubmission[]>;
+    findByExamId(examId: string): Promise<ExamSubmission[]>;
 }

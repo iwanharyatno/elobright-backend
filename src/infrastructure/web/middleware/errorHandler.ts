@@ -38,6 +38,26 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
         return res.status(400).json({ error: err.message });
     }
 
+    if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ error: 'File too large (max 5MB)' });
+    }
+
+    if (err.message === 'Invalid file type: only xlsx, xls, csv allowed') {
+        return res.status(400).json({ error: err.message });
+    }
+
+    if (err.message === 'NIM column is required' || err.message === 'Exam not found') {
+        return res.status(400).json({ error: err.message });
+    }
+
+    if (err.message === 'Import already in progress for this exam') {
+        return res.status(409).json({ error: err.message });
+    }
+
+    if (err.message?.startsWith('Unknown additional score name') || err.message?.startsWith('Unknown section name')) {
+        return res.status(400).json({ error: err.message });
+    }
+
     logger.error(`Unhandled error on ${req.method} ${req.originalUrl}`, {
         errorMessage: err?.message,
         stack: err?.stack,

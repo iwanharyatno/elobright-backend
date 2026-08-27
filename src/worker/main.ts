@@ -1,13 +1,17 @@
 import { emailWorker } from './emailWorker';
 import { closeEmailQueue } from './emailQueue';
+import { scoreImportWorker } from './scoreImportWorker';
+import { closeScoreImportQueue } from './scoreImportQueue';
 
-console.log('[EmailWorker] Starting email worker process...');
+console.log('[Worker] Starting worker processes...');
 
 const shutdown = async (signal: string) => {
-  console.log(`[EmailWorker] Received ${signal}, shutting down gracefully...`);
+  console.log(`[Worker] Received ${signal}, shutting down gracefully...`);
   await emailWorker.close();
+  await scoreImportWorker.close();
   await closeEmailQueue();
-  console.log('[EmailWorker] Shutdown complete');
+  await closeScoreImportQueue();
+  console.log('[Worker] Shutdown complete');
   process.exit(0);
 };
 
@@ -24,4 +28,4 @@ process.on('unhandledRejection', (reason) => {
   process.exit(1);
 });
 
-console.log('[EmailWorker] Email worker is running and listening for jobs...');
+console.log('[Worker] Email and Score Import workers are running and listening for jobs...');

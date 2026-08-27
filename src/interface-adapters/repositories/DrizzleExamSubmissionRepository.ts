@@ -29,6 +29,12 @@ export class DrizzleExamSubmissionRepository implements IExamSubmissionRepositor
         return submissions as ExamSubmission[];
     }
 
+    async findByExamId(examId: string): Promise<ExamSubmission[]> {
+        const submissions = await db.select().from(examSubmissionsTable)
+            .where(eq(examSubmissionsTable.examId, examId));
+        return submissions as ExamSubmission[];
+    }
+
     async findByUserId(userId: number): Promise<ExamSubmission[]> {
         const results = await db.select({
             submission: examSubmissionsTable,

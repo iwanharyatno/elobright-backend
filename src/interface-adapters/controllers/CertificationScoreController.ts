@@ -21,18 +21,16 @@ export class CertificationScoreController {
 
     getAll = async (req: Request, res: Response, next: NextFunction) => {
         try {
-            // Strict camelCase: reject legacy snake_case query
-            if (typeof (req.query as any).exam_submission_id === 'string') {
-                return res.status(400).json({ error: 'Use examSubmissionId (camelCase) query param' });
+            // Strict camelCase: reject legacy snake_case queries
+            if (typeof (req.query as any).exam_submission_id === 'string' || typeof (req.query as any).examSubmissionId === 'string') {
+                // examSubmissionId is deprecated, use examId
+                return res.status(400).json({ error: 'Use examId (camelCase) query param' });
             }
-            const examSubmissionId = typeof req.query.examSubmissionId === 'string'
-                ? req.query.examSubmissionId
-                : undefined;
-            if (examSubmissionId) {
-                // Validate uuid if provided
-                try { z.string().uuid().parse(examSubmissionId); } catch (e) { throw e; }
+            const examId = typeof req.query.examId === 'string' ? req.query.examId : undefined;
+            if (examId) {
+                try { z.string().uuid().parse(examId); } catch (e) { throw e; }
             }
-            const scores = await this.manageCertificationScores.getAll(examSubmissionId);
+            const scores = await this.manageCertificationScores.getAll(examId);
             res.status(200).json(scores);
         } catch (error) {
             next(error);

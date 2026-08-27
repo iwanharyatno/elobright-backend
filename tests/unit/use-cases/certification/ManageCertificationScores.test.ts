@@ -83,7 +83,8 @@ describe('ManageCertificationScores Use Case', () => {
             findById: jest.fn().mockResolvedValue(null),
             findByUserAndExam: jest.fn(),
             findByUserId: jest.fn(),
-            findAllWithDetails: jest.fn()
+            findAllWithDetails: jest.fn(),
+            findByExamId: jest.fn().mockResolvedValue([])
         } as unknown as jest.Mocked<IExamSubmissionRepository>;
 
         mockExamRepo = {
@@ -121,13 +122,24 @@ describe('ManageCertificationScores Use Case', () => {
         expect(result).toEqual([{ ...baseScore, originalExamScore: 0, totalScore: 0, scores: [], overrides: [], groupNumber: null, degreeProgram: null, exam: undefined, student: undefined }]);
     });
 
-    it('should filter certification scores by exam submission id', async () => {
+    it('should filter certification scores by examId and return latest per user', async () => {
+        const examId = 'exam-1';
+        const olderSubmission = { id: 'sub-old', userId: 1, examId, startedAt: new Date('2023-01-01'), submittedAt: new Date('2023-01-01') } as any;
+        const latestSubmission = { id: 'sub-1', userId: 1, examId, startedAt: new Date('2023-02-01'), submittedAt: new Date('2023-02-01') } as any;
+        mockSubmissionRepo.findByExamId.mockResolvedValue([olderSubmission, latestSubmission]);
         mockCertificationScoreRepo.findByExamSubmissionId.mockResolvedValue(baseScore);
+        // Mock findById for enrichment of the latest score's submission
+        mockSubmissionRepo.findById.mockResolvedValue(latestSubmission);
+        mockExamRepo.findById.mockResolvedValue(null);
+        mockStudentRepo.findByUserId.mockResolvedValue(null);
 
-        const result = await manageCertificationScores.getAll('sub-1');
+        const result = await manageCertificationScores.getAll(examId);
 
+        expect(mockSubmissionRepo.findByExamId).toHaveBeenCalledWith(examId);
         expect(mockCertificationScoreRepo.findByExamSubmissionId).toHaveBeenCalledWith('sub-1');
+        // Should only return the latest (sub-1), not the older one
         expect(result).toEqual([{ ...baseScore, originalExamScore: 0, totalScore: 0, scores: [], overrides: [], groupNumber: null, degreeProgram: null, exam: undefined, student: undefined }]);
+        expect(result).toHaveLength(1);
     });
 
     it('should compute originalExamScore using per-section weights with equal-split remainder', async () => {
@@ -235,11 +247,12 @@ describe('ManageCertificationScores Use Case', () => {
         expect(result[0].exam).toBeUndefined();
     });
 
-    it('should return empty array when filtering by unknown exam submission id', async () => {
-        mockCertificationScoreRepo.findByExamSubmissionId.mockResolvedValue(null);
+    it('should return empty array when filtering by unknown examId', async () => {
+        mockSubmissionRepo.findByExamId.mockResolvedValue([]);
 
-        const result = await manageCertificationScores.getAll('missing');
+        const result = await manageCertificationScores.getAll('missing-exam-id');
 
+        expect(mockSubmissionRepo.findByExamId).toHaveBeenCalledWith('missing-exam-id');
         expect(result).toEqual([]);
     });
 

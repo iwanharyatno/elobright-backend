@@ -1,0 +1,449 @@
+import { Worker, Job } from 'bullmq';
+import { env } from '../config/env';
+import { ScoreImportJobData } from './scoreImportQueue';
+import { queueLogger } from '../infrastructure/logger';
+import fs from 'fs';
+import path from 'path';
+import ExcelJS from 'exceljs';
+import { parse } from 'csv-parse/sync';
+import Redis from 'ioredis';
+
+const connection = {
+    host: env.REDIS_HOST,
+    port: env.REDIS_PORT,
+    password: env.REDIS_PASSWORD || undefined,
+    maxRetriesPerRequest: null,
+};
+
+const redisForLock = new Redis({
+    host: env.REDIS_HOST,
+    port: env.REDIS_PORT,
+    password: env.REDIS_PASSWORD || undefined,
+    maxRetriesPerRequest: null,
+    lazyConnect: false,
+});
+
+interface RowResult {
+    row: number;
+    nim: string | null;
+    success: boolean;
+    error?: string;
+    warnings?: string[];
+}
+
+function isExplicitClear(value: any): boolean {
+    if (value === null || value === undefined) return false;
+    if (typeof value === 'number') return value === 0;
+    const s = String(value).trim();
+    if (s === '') return false;
+    const lower = s.toLowerCase();
+    return lower === 'null' || lower === 'null()' || s === '-' || lower === '0';
+}
+
+function isEmptyCell(value: any): boolean {
+    if (value === null || value === undefined) return true;
+    const s = String(value).trim();
+    return s === '';
+}
+
+function parseScoreValue(raw: any): number | null {
+    if (isEmptyCell(raw)) return null; // skip
+    if (isExplicitClear(raw)) return null; // signal clear - caller checks isExplicitClear before this
+    const num = typeof raw === 'number' ? raw : Number(String(raw).trim().replace(',', '.'));
+    if (Number.isNaN(num)) return null;
+    return num;
+}
+
+async function readWorkbook(filePath: string): Promise<{ headers: string[], rows: any[][], warnings: string[] }> {
+    const ext = path.extname(filePath).toLowerCase();
+    const warnings: string[] = [];
+    let headers: string[] = [];
+    let rows: any[][] = [];
+
+    if (ext === '.csv') {
+        const content = await fs.promises.readFile(filePath, 'utf-8');
+        const records = parse(content, { skip_empty_lines: true, trim: true }) as any[][];
+        if (records.length === 0) return { headers: [], rows: [], warnings: ['Empty CSV'] };
+        headers = (records[0] as any[]).map(h => String(h ?? '').trim());
+        rows = records.slice(1);
+    } else {
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.readFile(filePath);
+        const worksheet = workbook.worksheets[0];
+        if (!worksheet) return { headers: [], rows: [], warnings: ['Empty workbook'] };
+        const headerRow = worksheet.getRow(1);
+        headers = [];
+        headerRow.eachCell((cell, colNumber) => {
+            headers[colNumber - 1] = String(cell.value ?? '').trim();
+        });
+        // Handle sparse headers: fill gaps
+        headers = headers.map(h => h ?? '').map(h => String(h).trim());
+        // Remove trailing empties
+        while (headers.length > 0 && headers[headers.length - 1] === '') headers.pop();
+
+        rows = [];
+        worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) return;
+            const values: any[] = [];
+            row.eachCell((cell, colNumber) => {
+                values[colNumber - 1] = cell.value;
+            });
+            // Pad to headers length
+            while (values.length < headers.length) values.push(null);
+            // Skip entirely empty rows
+            const isEmpty = values.every(v => isEmptyCell(v));
+            if (!isEmpty) rows.push(values);
+        });
+    }
+    return { headers, rows, warnings };
+}
+
+const processScoreImport = async (job: Job<ScoreImportJobData>): Promise<{ total: number; success: number; failed: number; warnings: string[]; errors: RowResult[] }> => {
+    const { filePath, examId, importId } = job.data;
+    queueLogger.info(`[ScoreImport] Starting ${importId} exam ${examId} file ${filePath}`);
+
+    // Lazy imports to avoid circular deps during worker startup
+    const { db } = await import('../infrastructure/database/db');
+    const { studentsTable, examSubmissionsTable } = await import('../infrastructure/database/schema');
+    const { eq, and, sql, desc } = await import('drizzle-orm');
+    const { DrizzleStudentRepository } = await import('../interface-adapters/repositories/DrizzleStudentRepository');
+    const { DrizzleExamSubmissionRepository } = await import('../interface-adapters/repositories/DrizzleExamSubmissionRepository');
+    const { DrizzleCertificationScoreRepository } = await import('../interface-adapters/repositories/DrizzleCertificationScoreRepository');
+    const { DrizzleExamSectionRepository } = await import('../interface-adapters/repositories/DrizzleExamSectionRepository');
+    const { DrizzleCertificationAdditionalScoreRepository } = await import('../interface-adapters/repositories/DrizzleCertificationAdditionalScoreRepository');
+    const { DrizzleExamRepository } = await import('../interface-adapters/repositories/DrizzleExamRepository');
+
+    const studentRepo = new DrizzleStudentRepository();
+    const submissionRepo = new DrizzleExamSubmissionRepository();
+    const certRepo = new DrizzleCertificationScoreRepository();
+    const sectionRepo = new DrizzleExamSectionRepository();
+    const additionalRepo = new DrizzleCertificationAdditionalScoreRepository();
+    const examRepo = new DrizzleExamRepository();
+
+    // Fetch exam validation
+    const exam = await examRepo.findById(examId);
+    if (!exam) throw new Error(`Exam not found: ${examId}`);
+
+    const examSections = await sectionRepo.findByExamId(examId);
+    const sectionMapLower = new Map<string, { id: string; title: string | null }>();
+    for (const s of examSections) {
+        const key = (s.title ?? s.id).toLowerCase();
+        // store canonical title for later use when storing override
+        sectionMapLower.set(key, { id: s.id, title: s.title ?? null });
+        // also store id lower for legacy
+        sectionMapLower.set(s.id.toLowerCase(), { id: s.id, title: s.title ?? null });
+    }
+    const sectionTitleByLower = new Map<string, string>();
+    for (const s of examSections) {
+        const canonical = s.title ?? s.id;
+        sectionTitleByLower.set(canonical.toLowerCase(), canonical);
+    }
+
+    const additionalConfigs = await additionalRepo.findAll();
+    const additionalMapLower = new Map<string, { scoreName: string; weight: number }>();
+    for (const c of additionalConfigs) {
+        additionalMapLower.set(c.scoreName.toLowerCase(), c);
+    }
+
+    // Read file
+    let headers: string[] = [];
+    let rows: any[][] = [];
+    let fileWarnings: string[] = [];
+    try {
+        const parsed = await readWorkbook(filePath);
+        headers = parsed.headers;
+        rows = parsed.rows;
+        fileWarnings = parsed.warnings;
+    } catch (e: any) {
+        throw new Error(`Failed to read file: ${e.message}`);
+    }
+
+    // Find NIM column index case-insensitive
+    const nimIndex = headers.findIndex(h => h.toLowerCase() === 'nim');
+    if (nimIndex === -1) {
+        throw new Error('NIM column is required');
+    }
+
+    // Classify other columns
+    const colMeta: Array<{ index: number; header: string; type: 'section' | 'additional' | 'unknown' | 'nim' }> = [];
+    const unknownHeaders: string[] = [];
+    for (let i = 0; i < headers.length; i++) {
+        const h = headers[i];
+        if (i === nimIndex) { colMeta.push({ index: i, header: h, type: 'nim' }); continue; }
+        if (!h) { colMeta.push({ index: i, header: h, type: 'unknown' }); unknownHeaders.push(`(empty header at col ${i + 1})`); continue; }
+        const lower = h.toLowerCase();
+        if (sectionMapLower.has(lower)) {
+            colMeta.push({ index: i, header: h, type: 'section' });
+        } else if (additionalMapLower.has(lower)) {
+            colMeta.push({ index: i, header: h, type: 'additional' });
+        } else {
+            colMeta.push({ index: i, header: h, type: 'unknown' });
+            unknownHeaders.push(h);
+        }
+    }
+
+    const warnings: string[] = [...fileWarnings];
+    if (unknownHeaders.length > 0) {
+        warnings.push(`Unknown columns ignored: ${unknownHeaders.join(', ')}`);
+    }
+
+    const total = rows.length;
+    let success = 0;
+    let failed = 0;
+    const errors: RowResult[] = [];
+
+    await job.updateProgress({ percent: 0, processed: 0, total, success: 0, failed: 0, warnings });
+
+    for (let r = 0; r < rows.length; r++) {
+        const row = rows[r];
+        const rowNum = r + 2; // header is 1
+        const nimRaw = row[nimIndex];
+        const nim = nimRaw != null ? String(nimRaw).trim() : '';
+        if (!nim) {
+            failed++;
+            errors.push({ row: rowNum, nim: null, success: false, error: 'NIM is empty' });
+            await job.updateProgress({ percent: Math.round(((r + 1) / total) * 100), processed: r + 1, total, success, failed, warnings, errors: errors.slice(-5) });
+            continue;
+        }
+
+        // NIM -> student -> userId
+        let student: any = null;
+        try {
+            student = await studentRepo.findByStudentId(nim);
+        } catch {}
+        if (!student) {
+            failed++;
+            errors.push({ row: rowNum, nim, success: false, error: `Student not found for NIM ${nim}` });
+            await job.updateProgress({ percent: Math.round(((r + 1) / total) * 100), processed: r + 1, total, success, failed, warnings });
+            continue;
+        }
+        const userId = student.userId;
+
+        // Find latest exam submission for examId + userId
+        let submissions: any[] = [];
+        try {
+            submissions = await submissionRepo.findByUserAndExam(userId, examId);
+        } catch (e: any) {
+            failed++;
+            errors.push({ row: rowNum, nim, success: false, error: `Failed to query submissions: ${e.message}` });
+            await job.updateProgress({ percent: Math.round(((r + 1) / total) * 100), processed: r + 1, total, success, failed, warnings });
+            continue;
+        }
+        if (submissions.length === 0) {
+            failed++;
+            errors.push({ row: rowNum, nim, success: false, error: `No exam submission for NIM ${nim} and exam ${examId}` });
+            await job.updateProgress({ percent: Math.round(((r + 1) / total) * 100), processed: r + 1, total, success, failed, warnings });
+            continue;
+        }
+        const latest = submissions.sort((a: any, b: any) => (new Date(b.startedAt).getTime() || 0) - (new Date(a.startedAt).getTime() || 0))[0];
+        const examSubmissionId = latest.id;
+
+        // Find certification score
+        let cert: any = null;
+        try {
+            cert = await certRepo.findByExamSubmissionId(examSubmissionId);
+            // findByExamSubmissionId joins user, but we need to ensure it matches userId - if not, try findById via other means
+            if (cert && cert.userId !== userId) {
+                // Fallback: search by id
+                const byId = await certRepo.findById(cert.id);
+                cert = byId;
+            }
+        } catch {}
+        if (!cert) {
+            // Try to create if not exists? The spec says locate by examSubmissionId and userId, if not found, error
+            failed++;
+            errors.push({ row: rowNum, nim, success: false, error: `Certification score not found for NIM ${nim} (examSubmission ${examSubmissionId})` });
+            await job.updateProgress({ percent: Math.round(((r + 1) / total) * 100), processed: r + 1, total, success, failed, warnings });
+            continue;
+        }
+
+        // Build per-row additionalScore and examScoreOverride maps, with case-insensitive handling and per-key clear
+        const existingAdditional: Record<string, number> = cert.additionalScore ? { ...cert.additionalScore } : {};
+        const existingOverride: Record<string, number> = cert.examScoreOverride ? { ...cert.examScoreOverride } : {};
+
+        // We'll need to create mutable copies for merging
+        let newAdditional = { ...existingAdditional };
+        let newOverride = { ...existingOverride };
+        let hasAdditionalChange = false;
+        let hasOverrideChange = false;
+        const rowWarnings: string[] = [];
+
+        for (const meta of colMeta) {
+            if (meta.type === 'nim' || meta.type === 'unknown') continue;
+            const rawVal = row[meta.index];
+            const headerOriginal = meta.header;
+            // Empty skip
+            if (isEmptyCell(rawVal)) continue;
+            // Explicit clear
+            if (isExplicitClear(rawVal)) {
+                if (meta.type === 'section') {
+                    // Find canonical title for this header
+                    const canonicalEntry = sectionMapLower.get(headerOriginal.toLowerCase());
+                    const canonicalTitle = canonicalEntry?.title ?? headerOriginal;
+                    // Need to find existing key case-insensitively to delete
+                    const existingKey = Object.keys(newOverride).find(k => k.toLowerCase() === headerOriginal.toLowerCase()) 
+                        ?? Object.keys(newOverride).find(k => k.toLowerCase() === (canonicalTitle ?? '').toLowerCase());
+                    // Also try lower of header
+                    const keyToDelete = Object.keys(newOverride).find(k => k.toLowerCase() === headerOriginal.toLowerCase());
+                    if (keyToDelete) {
+                        delete newOverride[keyToDelete];
+                        hasOverrideChange = true;
+                    } else {
+                        // If not exists, no change but still consider success (no error)
+                    }
+                } else if (meta.type === 'additional') {
+                    const canonical = additionalMapLower.get(headerOriginal.toLowerCase())?.scoreName ?? headerOriginal;
+                    const keyToDelete = Object.keys(newAdditional).find(k => k.toLowerCase() === headerOriginal.toLowerCase())
+                        ?? Object.keys(newAdditional).find(k => k.toLowerCase() === canonical.toLowerCase());
+                    if (keyToDelete) {
+                        delete newAdditional[keyToDelete];
+                        hasAdditionalChange = true;
+                    }
+                }
+                continue;
+            }
+            // Parse numeric 0..100
+            const num = typeof rawVal === 'number' ? rawVal : Number(String(rawVal).trim().replace(',', '.'));
+            if (Number.isNaN(num) || num < 0 || num > 100) {
+                rowWarnings.push(`Row ${rowNum} col "${headerOriginal}" invalid value "${rawVal}" (must be 0..100, NULL, - or empty to skip)`);
+                continue;
+            }
+            if (meta.type === 'section') {
+                // Determine canonical key to store: use header as sent? Spec says display as is payload, so preserve header original case
+                // But for consistency, we could use canonical title case. We'll use headerOriginal as provided (preserve case)
+                // Check if we should use canonical title vs headerOriginal
+                const lowerHeader = headerOriginal.toLowerCase();
+                // Find if there's existing key with same lower to replace
+                const existingKey = Object.keys(newOverride).find(k => k.toLowerCase() === lowerHeader);
+                if (existingKey) {
+                    // Replace existing, preserve original header case? Use headerOriginal
+                    delete newOverride[existingKey];
+                    newOverride[headerOriginal] = num;
+                } else {
+                    newOverride[headerOriginal] = num;
+                }
+                hasOverrideChange = true;
+            } else if (meta.type === 'additional') {
+                const canonical = additionalMapLower.get(headerOriginal.toLowerCase())?.scoreName ?? headerOriginal;
+                // Find existing case-insensitive
+                const existingKey = Object.keys(newAdditional).find(k => k.toLowerCase() === headerOriginal.toLowerCase())
+                    ?? Object.keys(newAdditional).find(k => k.toLowerCase() === canonical.toLowerCase());
+                if (existingKey) {
+                    delete newAdditional[existingKey];
+                    newAdditional[headerOriginal] = num;
+                } else {
+                    newAdditional[headerOriginal] = num;
+                }
+                hasAdditionalChange = true;
+            }
+        }
+
+        // Validate additionalScore keys after merging? Use same validation as PATCH
+        try {
+            if (hasAdditionalChange) {
+                const validAdditionalLower = new Set(additionalConfigs.map(c => c.scoreName.toLowerCase()));
+                const invalid = Object.keys(newAdditional).find(k => !validAdditionalLower.has(k.toLowerCase()));
+                if (invalid) throw new Error(`Unknown additional score name: ${invalid}`);
+            }
+            if (hasOverrideChange) {
+                const validSectionLower = new Set(examSections.map(s => (s.title ?? s.id).toLowerCase()));
+                const invalid = Object.keys(newOverride).find(k => !validSectionLower.has(k.toLowerCase()));
+                if (invalid) throw new Error(`Unknown section name: ${invalid}`);
+            }
+        } catch (e: any) {
+            failed++;
+            errors.push({ row: rowNum, nim, success: false, error: e.message, warnings: rowWarnings });
+            await job.updateProgress({ percent: Math.round(((r + 1) / total) * 100), processed: r + 1, total, success, failed, warnings, errors: errors.slice(-5) });
+            continue;
+        }
+
+        // Perform updates using same rules as PATCH (two separate repo calls)
+        try {
+            if (hasAdditionalChange) {
+                // If newAdditional is empty, we should still update to empty? But spec says clear column-wise, so if all cleared, set to empty object or null?
+                // If newAdditional empty after deletions, set to null or {}? Existing behavior for clear is null for override, but for additionalScore, null vs {}?
+                // We'll set to newAdditional if not empty, else set to null? Check existing: cert.additionalScore can be null. If we cleared all keys, should we set to null or {}?
+                // We'll set to Object.keys(newAdditional).length === 0 ? null : newAdditional
+                const toSave = Object.keys(newAdditional).length === 0 ? null : newAdditional;
+                // Need to handle null case via updateAdditionalScore? That method expects Record, but we can call with null? Actually updateAdditionalScore expects Record, but we have updateExamScoreOverride for null.
+                // For additionalScore, there is no null clear in original PATCH? It only supports additionalScore object, not null. But we can set to empty object.
+                // For simplicity, if empty, set to null via direct DB? Let's use updateAdditionalScore with empty if needed, but repo may not support null.
+                // We'll check: updateAdditionalScore takes Record<string,number> not null. So we should not set null for additionalScore.
+                // Instead, if empty, set to {} or keep as is.
+                if (toSave === null) {
+                    // Need to handle: create method to clear? For now, set to {}
+                    await certRepo.updateAdditionalScore(cert.id, {});
+                } else {
+                    await certRepo.updateAdditionalScore(cert.id, newAdditional);
+                }
+            }
+            if (hasOverrideChange) {
+                const toSaveOverride = Object.keys(newOverride).length === 0 ? null : newOverride;
+                await certRepo.updateExamScoreOverride(cert.id, toSaveOverride);
+            }
+            // If no changes (all skipped), still count as success? But per row, if no valid columns, consider warning
+            if (!hasAdditionalChange && !hasOverrideChange && rowWarnings.length > 0) {
+                warnings.push(...rowWarnings);
+            }
+            success++;
+            if (rowWarnings.length > 0) warnings.push(...rowWarnings);
+            errors.push({ row: rowNum, nim, success: true, warnings: rowWarnings });
+        } catch (e: any) {
+            failed++;
+            errors.push({ row: rowNum, nim, success: false, error: `DB update failed: ${e.message}`, warnings: rowWarnings });
+        }
+
+        await job.updateProgress({ percent: Math.round(((r + 1) / total) * 100), processed: r + 1, total, success, failed, warnings, errors: errors.slice(-5) });
+    }
+
+    // Cleanup file
+    try {
+        if (fs.existsSync(filePath)) await fs.promises.unlink(filePath);
+    } catch {}
+
+    // Release lock
+    try {
+        await redisForLock.del(`import:lock:${examId}`);
+    } catch {}
+
+    const result = { total, success, failed, warnings, errors };
+    queueLogger.info(`[ScoreImport] Completed ${importId} success ${success}/${total} failed ${failed}`, { importId, examId });
+    return result;
+};
+
+export const scoreImportWorker = new Worker<ScoreImportJobData>(
+    'score-import',
+    async (job: Job<ScoreImportJobData>) => {
+        const result = await processScoreImport(job);
+        return result;
+    },
+    { connection, concurrency: 1 }
+);
+
+scoreImportWorker.on('completed', (job: Job<ScoreImportJobData>) => {
+    queueLogger.info(`Score import ${job.id} completed`, { importId: job.data.importId });
+});
+
+scoreImportWorker.on('failed', (job: Job<ScoreImportJobData> | undefined, err: Error) => {
+    queueLogger.error(`Score import ${job?.id} failed`, { error: err.message });
+    // Ensure lock released on failure
+    if (job?.data.examId) {
+        redisForLock.del(`import:lock:${job.data.examId}`).catch(() => {});
+        // Cleanup file on failure
+        const fp = job.data.filePath;
+        if (fp && fs.existsSync(fp)) fs.promises.unlink(fp).catch(() => {});
+    }
+});
+
+scoreImportWorker.on('error', (err: Error) => {
+    queueLogger.error('Score import worker error', { error: err.message });
+});
+
+scoreImportWorker.on('progress', (job: Job<ScoreImportJobData>, progress: any) => {
+    queueLogger.debug(`Score import progress ${job.id}: ${JSON.stringify(progress)}`);
+});
+
+export const closeScoreImportWorker = async (): Promise<void> => {
+    await scoreImportWorker.close();
+    await redisForLock.quit();
+};

@@ -87,13 +87,54 @@ export class ManageCertificationScores {
         };
     }
 
-    async getAll(examSubmissionId?: string): Promise<CertificationScoreWithUser[]> {
+    async getAll(examId?: string): Promise<CertificationScoreWithUser[]> {
         let scores: CertificationScoreWithUser[];
-        if (examSubmissionId) {
-            const score = await this.certificationScoreRepository.findByExamSubmissionId(examSubmissionId);
-            scores = score ? [score] : [];
+        if (examId) {
+            // Filter by examId: get latest submission per user for that exam
+            const submissions = await this.submissionRepository.findByExamId(examId);
+            const latestByUser = new Map<number, typeof submissions[0]>();
+            for (const sub of submissions) {
+                const existing = latestByUser.get(sub.userId);
+                if (!existing) {
+                    latestByUser.set(sub.userId, sub);
+                } else {
+                    const existingTime = existing.startedAt ? new Date(existing.startedAt).getTime() : 0;
+                    const currentTime = sub.startedAt ? new Date(sub.startedAt).getTime() : 0;
+                    if (currentTime > existingTime || (currentTime === existingTime && (sub.submittedAt ? new Date(sub.submittedAt).getTime() : 0) > (existing.submittedAt ? new Date(existing.submittedAt).getTime() : 0))) {
+                        latestByUser.set(sub.userId, sub);
+                    }
+                }
+            }
+            const latestIds = Array.from(latestByUser.values()).map(s => s.id);
+            const certScores = await Promise.all(latestIds.map(id => this.certificationScoreRepository.findByExamSubmissionId(id)));
+            scores = certScores.filter((c): c is CertificationScoreWithUser => c !== null);
         } else {
-            scores = await this.certificationScoreRepository.findAll();
+            const allScores = await this.certificationScoreRepository.findAll();
+            // Deduplicate to latest per user per exam
+            const enriched = await Promise.all(allScores.map(async s => {
+                const sub = await this.submissionRepository.findById(s.examSubmissionId);
+                return { score: s, submission: sub };
+            }));
+            const latestMap = new Map<string, typeof enriched[0]>();
+            for (const item of enriched) {
+                if (!item.submission) {
+                    // Keep scores with missing submission as-is (no dedup)
+                    latestMap.set(`no-sub-${item.score.id}`, item);
+                    continue;
+                }
+                const key = `${item.score.userId}-${item.submission.examId}`;
+                const existing = latestMap.get(key);
+                if (!existing) {
+                    latestMap.set(key, item);
+                } else {
+                    const existingTime = existing.submission?.startedAt ? new Date(existing.submission.startedAt).getTime() : 0;
+                    const currentTime = item.submission?.startedAt ? new Date(item.submission.startedAt).getTime() : 0;
+                    if (currentTime > existingTime || (currentTime === existingTime && (item.submission?.submittedAt ? new Date(item.submission.submittedAt).getTime() : 0) > (existing.submission?.submittedAt ? new Date(existing.submission.submittedAt).getTime() : 0))) {
+                        latestMap.set(key, item);
+                    }
+                }
+            }
+            scores = Array.from(latestMap.values()).map(v => v.score);
         }
 
         return Promise.all(scores.map(async (score) => {
