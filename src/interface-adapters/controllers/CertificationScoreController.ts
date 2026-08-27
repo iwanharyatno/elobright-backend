@@ -5,8 +5,8 @@ import { env } from '../../config/env';
 import { z } from 'zod';
 
 const updateSchema = z.object({
-    additionalScore: z.record(z.string(), z.number().min(0).max(100)).optional(),
-    examScoreOverride: z.record(z.string().min(1), z.number().min(0).max(100)).nullable().optional(),
+    additionalScore: z.record(z.string(), z.union([z.number().min(0).max(100), z.null()])).optional(),
+    examScoreOverride: z.record(z.string().min(1), z.union([z.number().min(0).max(100), z.null()])).nullable().optional(),
 }).strict();
 
 const blastEmailSchema = z.object({

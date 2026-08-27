@@ -10,8 +10,8 @@ import { CertificationScore, CertificationScoreWithUser } from '../../domain/ent
 import { computeCertificateScore, SectionScoreInput, SectionWeightInput } from './certificateComputation';
 
 export interface UpdateCertificationScoreData {
-    additionalScore?: Record<string, number>;
-    examScoreOverride?: Record<string, number> | null;
+    additionalScore?: Record<string, number | null>;
+    examScoreOverride?: Record<string, number | null> | null;
 }
 
 export class ManageCertificationScores {
@@ -198,11 +198,38 @@ export class ManageCertificationScores {
         }
 
         let updated = existing;
-        if (data.additionalScore) {
-            updated = (await this.certificationScoreRepository.updateAdditionalScore(id, data.additionalScore)) ?? updated;
+        if (data.additionalScore !== undefined) {
+            const existingAdditional = existing.additionalScore ? { ...existing.additionalScore } : {} as Record<string, number>;
+            const merged: Record<string, number> = { ...existingAdditional };
+            for (const [rawKey, rawValue] of Object.entries(data.additionalScore as Record<string, number | null>)) {
+                const targetKey = Object.keys(merged).find(k => k.toLowerCase() === rawKey.toLowerCase());
+                if (rawValue === null) {
+                    if (targetKey) delete merged[targetKey];
+                } else {
+                    if (targetKey && targetKey !== rawKey) delete merged[targetKey];
+                    merged[rawKey] = rawValue as number;
+                }
+            }
+            updated = (await this.certificationScoreRepository.updateAdditionalScore(id, merged)) ?? updated;
         }
         if (data.examScoreOverride !== undefined) {
-            updated = (await this.certificationScoreRepository.updateExamScoreOverride(id, data.examScoreOverride)) ?? updated;
+            if (data.examScoreOverride === null) {
+                updated = (await this.certificationScoreRepository.updateExamScoreOverride(id, null)) ?? updated;
+            } else {
+                const existingOverride = existing.examScoreOverride ? { ...existing.examScoreOverride } : {} as Record<string, number>;
+                const merged: Record<string, number> = { ...existingOverride };
+                for (const [rawKey, rawValue] of Object.entries(data.examScoreOverride as Record<string, number | null>)) {
+                    const targetKey = Object.keys(merged).find(k => k.toLowerCase() === rawKey.toLowerCase());
+                    if (rawValue === null) {
+                        if (targetKey) delete merged[targetKey];
+                    } else {
+                        if (targetKey && targetKey !== rawKey) delete merged[targetKey];
+                        merged[rawKey] = rawValue as number;
+                    }
+                }
+                const toSave = Object.keys(merged).length === 0 ? null : merged;
+                updated = (await this.certificationScoreRepository.updateExamScoreOverride(id, toSave)) ?? updated;
+            }
         }
 
         return updated;
