@@ -97,3 +97,33 @@ export const queueLogger = {
     error: (message: string, meta?: any) => logger.error(`[QUEUE] ${message}`, meta),
     debug: (message: string, meta?: any) => logger.debug(`[QUEUE] ${message}`, meta),
 };
+
+const transportImport = new DailyRotateFile({
+    filename: path.join(logDir, 'import-%DATE%.log'),
+    datePattern: 'YYYY-MM-DD',
+    maxSize: '20m',
+    maxFiles: '14d',
+    format: logFormat,
+});
+
+const transportImportError = new DailyRotateFile({
+    filename: path.join(logDir, 'import-error-%DATE%.log'),
+    datePattern: 'YYYY-MM-DD',
+    maxSize: '20m',
+    maxFiles: '30d',
+    format: logFormat,
+    level: 'warn',
+});
+
+const importBaseLogger = winston.createLogger({
+    level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+    transports: [transportConsole, transportImport, transportImportError],
+    exitOnError: false,
+});
+
+export const importLogger = {
+    info: (message: string, meta?: any) => importBaseLogger.info(`[IMPORT] ${message}`, meta),
+    warn: (message: string, meta?: any) => importBaseLogger.warn(`[IMPORT] ${message}`, meta),
+    error: (message: string, meta?: any) => importBaseLogger.error(`[IMPORT] ${message}`, meta),
+    debug: (message: string, meta?: any) => importBaseLogger.debug(`[IMPORT] ${message}`, meta),
+};

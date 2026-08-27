@@ -9,6 +9,7 @@ import { parse } from 'csv-parse/sync';
 import { randomUUID } from 'crypto';
 import Redis from 'ioredis';
 import { env } from '../../config/env';
+import { importLogger } from '../../infrastructure/logger';
 
 const redisForLock = new Redis({
     host: env.REDIS_HOST,
@@ -71,6 +72,7 @@ export class ScoreImportService {
         // Check exam exists
         const exam = await this.examRepository.findById(examId);
         if (!exam) {
+            importLogger.warn(`Import validation failed: exam not found`, { examId, filePath, originalName, uploadedBy, where: 'exam validation' });
             try { if (fs.existsSync(filePath)) await fs.promises.unlink(filePath); } catch {}
             throw new Error('Exam not found');
         }
@@ -78,6 +80,7 @@ export class ScoreImportService {
         // Per-examId concurrency guard
         const isActive = await isImportActiveForExam(examId);
         if (isActive) {
+            importLogger.warn(`Import rejected: already in progress (queue)`, { examId, filePath, originalName, uploadedBy, where: 'concurrency guard - queue active' });
             try { if (fs.existsSync(filePath)) await fs.promises.unlink(filePath); } catch {}
             throw new Error('Import already in progress for this exam');
         }
@@ -85,6 +88,7 @@ export class ScoreImportService {
         const lockKey = `import:lock:${examId}`;
         const lockSet = await redisForLock.set(lockKey, '1', 'EX', 3600, 'NX');
         if (!lockSet) {
+            importLogger.warn(`Import rejected: already in progress (redis lock)`, { examId, filePath, originalName, uploadedBy, where: 'concurrency guard - redis lock', lockKey });
             try { if (fs.existsSync(filePath)) await fs.promises.unlink(filePath); } catch {}
             throw new Error('Import already in progress for this exam');
         }
@@ -96,7 +100,9 @@ export class ScoreImportService {
             const parsed = await readHeaders(filePath);
             headers = parsed.headers;
             totalRows = parsed.totalRows;
+            importLogger.info(`Import file headers parsed`, { examId, filePath, originalName, uploadedBy, headers, totalRows, where: 'header validation' });
         } catch (e: any) {
+            importLogger.error(`Import failed: cannot read file`, { examId, filePath, originalName, uploadedBy, where: 'file read', error: e.message, stack: e.stack });
             await redisForLock.del(lockKey);
             try { if (fs.existsSync(filePath)) await fs.promises.unlink(filePath); } catch {}
             throw new Error(`Failed to read file: ${e.message}`);
@@ -105,6 +111,7 @@ export class ScoreImportService {
         const lowerHeaders = headers.map(h => h.toLowerCase());
         const nimIndex = lowerHeaders.indexOf('nim');
         if (nimIndex === -1) {
+            importLogger.warn(`Import validation failed: NIM column missing`, { examId, filePath, originalName, uploadedBy, where: 'header validation', headers });
             await redisForLock.del(lockKey);
             try { if (fs.existsSync(filePath)) await fs.promises.unlink(filePath); } catch {}
             throw new Error('NIM column is required');
@@ -139,13 +146,17 @@ export class ScoreImportService {
             }
         }
         if (unknownHeaders.length > 0) {
-            warnings.push(`Unknown columns will be ignored: ${unknownHeaders.join(', ')}`);
+            const warnMsg = `Unknown columns will be ignored: ${unknownHeaders.join(', ')}`;
+            warnings.push(warnMsg);
+            importLogger.warn(`Import warnings: unknown columns`, { examId, filePath, originalName, uploadedBy, where: 'header classification', unknownHeaders, headers, warnings });
         }
 
         // If no valid data columns at all, warn but still allow enqueue? At least one known column should exist, else file is useless
         const hasValidColumn = headers.some((h, idx) => idx !== nimIndex && (sectionMapLower.has(h.toLowerCase()) || additionalMapLower.has(h.toLowerCase())));
         if (!hasValidColumn) {
-            warnings.push('No known section or additional score columns found; all data columns will be ignored');
+            const warnMsg = 'No known section or additional score columns found; all data columns will be ignored';
+            warnings.push(warnMsg);
+            importLogger.warn(`Import warnings: no valid data columns`, { examId, filePath, originalName, uploadedBy, where: 'header classification', headers, warnings });
         }
 
         const importId = randomUUID();
@@ -160,6 +171,8 @@ export class ScoreImportService {
             totalRows,
             warnings,
         });
+
+        importLogger.info(`Import enqueued`, { importId, examId, filePath, originalName, uploadedBy, totalRows, warnings, where: 'enqueue' });
 
         // Keep lock until worker completes (worker will delete lock on completion/failure)
         // Extend lock to cover processing time (already set with 3600s)

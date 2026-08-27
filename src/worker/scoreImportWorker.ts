@@ -1,7 +1,7 @@
 import { Worker, Job } from 'bullmq';
 import { env } from '../config/env';
 import { ScoreImportJobData } from './scoreImportQueue';
-import { queueLogger } from '../infrastructure/logger';
+import { queueLogger, importLogger } from '../infrastructure/logger';
 import fs from 'fs';
 import path from 'path';
 import ExcelJS from 'exceljs';
@@ -99,8 +99,9 @@ async function readWorkbook(filePath: string): Promise<{ headers: string[], rows
 }
 
 const processScoreImport = async (job: Job<ScoreImportJobData>): Promise<{ total: number; success: number; failed: number; warnings: string[]; errors: RowResult[] }> => {
-    const { filePath, examId, importId } = job.data;
+    const { filePath, examId, importId, originalName, uploadedBy } = job.data;
     queueLogger.info(`[ScoreImport] Starting ${importId} exam ${examId} file ${filePath}`);
+    importLogger.info(`Import started`, { importId, examId, filePath, originalName, uploadedBy });
 
     // Lazy imports to avoid circular deps during worker startup
     const { db } = await import('../infrastructure/database/db');
@@ -122,7 +123,10 @@ const processScoreImport = async (job: Job<ScoreImportJobData>): Promise<{ total
 
     // Fetch exam validation
     const exam = await examRepo.findById(examId);
-    if (!exam) throw new Error(`Exam not found: ${examId}`);
+    if (!exam) {
+        importLogger.error(`Import failed: exam not found`, { importId, examId, filePath, where: 'exam validation' });
+        throw new Error(`Exam not found: ${examId}`);
+    }
 
     const examSections = await sectionRepo.findByExamId(examId);
     const sectionMapLower = new Map<string, { id: string; title: string | null }>();
@@ -154,13 +158,16 @@ const processScoreImport = async (job: Job<ScoreImportJobData>): Promise<{ total
         headers = parsed.headers;
         rows = parsed.rows;
         fileWarnings = parsed.warnings;
+        importLogger.info(`File read success`, { importId, examId, filePath, where: 'file read', headers, totalRows: rows.length, fileWarnings });
     } catch (e: any) {
+        importLogger.error(`Import failed: cannot read file`, { importId, examId, filePath, where: 'file read', error: e.message, stack: e.stack });
         throw new Error(`Failed to read file: ${e.message}`);
     }
 
     // Find NIM column index case-insensitive
     const nimIndex = headers.findIndex(h => h.toLowerCase() === 'nim');
     if (nimIndex === -1) {
+        importLogger.error(`Import failed: NIM column missing`, { importId, examId, filePath, where: 'header validation', headers });
         throw new Error('NIM column is required');
     }
 
@@ -184,7 +191,12 @@ const processScoreImport = async (job: Job<ScoreImportJobData>): Promise<{ total
 
     const warnings: string[] = [...fileWarnings];
     if (unknownHeaders.length > 0) {
-        warnings.push(`Unknown columns ignored: ${unknownHeaders.join(', ')}`);
+        const warnMsg = `Unknown columns ignored: ${unknownHeaders.join(', ')}`;
+        warnings.push(warnMsg);
+        importLogger.warn(`Import warnings: unknown columns`, { importId, examId, filePath, where: 'header classification', unknownHeaders, headers });
+    }
+    if (fileWarnings.length > 0) {
+        importLogger.warn(`Import file warnings`, { importId, examId, filePath, where: 'file read', fileWarnings });
     }
 
     const total = rows.length;
@@ -192,6 +204,7 @@ const processScoreImport = async (job: Job<ScoreImportJobData>): Promise<{ total
     let failed = 0;
     const errors: RowResult[] = [];
 
+    importLogger.info(`Import processing started`, { importId, examId, filePath, totalRows: total, headers, unknownHeaders });
     await job.updateProgress({ percent: 0, processed: 0, total, success: 0, failed: 0, warnings });
 
     for (let r = 0; r < rows.length; r++) {
@@ -201,7 +214,9 @@ const processScoreImport = async (job: Job<ScoreImportJobData>): Promise<{ total
         const nim = nimRaw != null ? String(nimRaw).trim() : '';
         if (!nim) {
             failed++;
-            errors.push({ row: rowNum, nim: null, success: false, error: 'NIM is empty' });
+            const errMsg = 'NIM is empty';
+            errors.push({ row: rowNum, nim: null, success: false, error: errMsg });
+            importLogger.warn(`Row failed: NIM empty`, { importId, examId, filePath, where: `row ${rowNum}`, row: rowNum, nim: null, error: errMsg, rowData: row });
             await job.updateProgress({ percent: Math.round(((r + 1) / total) * 100), processed: r + 1, total, success, failed, warnings, errors: errors.slice(-5) });
             continue;
         }
@@ -213,8 +228,10 @@ const processScoreImport = async (job: Job<ScoreImportJobData>): Promise<{ total
         } catch {}
         if (!student) {
             failed++;
-            errors.push({ row: rowNum, nim, success: false, error: `Student not found for NIM ${nim}` });
-            await job.updateProgress({ percent: Math.round(((r + 1) / total) * 100), processed: r + 1, total, success, failed, warnings });
+            const errMsg = `Student not found for NIM ${nim}`;
+            errors.push({ row: rowNum, nim, success: false, error: errMsg });
+            importLogger.warn(`Row failed: student not found`, { importId, examId, filePath, where: `row ${rowNum} NIM=${nim}`, row: rowNum, nim, error: errMsg });
+            await job.updateProgress({ percent: Math.round(((r + 1) / total) * 100), processed: r + 1, total, success, failed, warnings, errors: errors.slice(-5) });
             continue;
         }
         const userId = student.userId;
@@ -225,14 +242,18 @@ const processScoreImport = async (job: Job<ScoreImportJobData>): Promise<{ total
             submissions = await submissionRepo.findByUserAndExam(userId, examId);
         } catch (e: any) {
             failed++;
-            errors.push({ row: rowNum, nim, success: false, error: `Failed to query submissions: ${e.message}` });
-            await job.updateProgress({ percent: Math.round(((r + 1) / total) * 100), processed: r + 1, total, success, failed, warnings });
+            const errMsg = `Failed to query submissions: ${e.message}`;
+            errors.push({ row: rowNum, nim, success: false, error: errMsg });
+            importLogger.error(`Row failed: submission query error`, { importId, examId, filePath, where: `row ${rowNum} NIM=${nim}`, row: rowNum, nim, userId, error: errMsg, stack: e.stack });
+            await job.updateProgress({ percent: Math.round(((r + 1) / total) * 100), processed: r + 1, total, success, failed, warnings, errors: errors.slice(-5) });
             continue;
         }
         if (submissions.length === 0) {
             failed++;
-            errors.push({ row: rowNum, nim, success: false, error: `No exam submission for NIM ${nim} and exam ${examId}` });
-            await job.updateProgress({ percent: Math.round(((r + 1) / total) * 100), processed: r + 1, total, success, failed, warnings });
+            const errMsg = `No exam submission for NIM ${nim} and exam ${examId}`;
+            errors.push({ row: rowNum, nim, success: false, error: errMsg });
+            importLogger.warn(`Row failed: no submission`, { importId, examId, filePath, where: `row ${rowNum} NIM=${nim}`, row: rowNum, nim, userId, error: errMsg });
+            await job.updateProgress({ percent: Math.round(((r + 1) / total) * 100), processed: r + 1, total, success, failed, warnings, errors: errors.slice(-5) });
             continue;
         }
         const latest = submissions.sort((a: any, b: any) => (new Date(b.startedAt).getTime() || 0) - (new Date(a.startedAt).getTime() || 0))[0];
@@ -250,10 +271,11 @@ const processScoreImport = async (job: Job<ScoreImportJobData>): Promise<{ total
             }
         } catch {}
         if (!cert) {
-            // Try to create if not exists? The spec says locate by examSubmissionId and userId, if not found, error
             failed++;
-            errors.push({ row: rowNum, nim, success: false, error: `Certification score not found for NIM ${nim} (examSubmission ${examSubmissionId})` });
-            await job.updateProgress({ percent: Math.round(((r + 1) / total) * 100), processed: r + 1, total, success, failed, warnings });
+            const errMsg = `Certification score not found for NIM ${nim} (examSubmission ${examSubmissionId})`;
+            errors.push({ row: rowNum, nim, success: false, error: errMsg });
+            importLogger.warn(`Row failed: certification not found`, { importId, examId, filePath, where: `row ${rowNum} NIM=${nim} examSubmissionId=${examSubmissionId}`, row: rowNum, nim, examSubmissionId, error: errMsg });
+            await job.updateProgress({ percent: Math.round(((r + 1) / total) * 100), processed: r + 1, total, success, failed, warnings, errors: errors.slice(-5) });
             continue;
         }
 
@@ -305,7 +327,9 @@ const processScoreImport = async (job: Job<ScoreImportJobData>): Promise<{ total
             // Parse numeric 0..100
             const num = typeof rawVal === 'number' ? rawVal : Number(String(rawVal).trim().replace(',', '.'));
             if (Number.isNaN(num) || num < 0 || num > 100) {
-                rowWarnings.push(`Row ${rowNum} col "${headerOriginal}" invalid value "${rawVal}" (must be 0..100, NULL, - or empty to skip)`);
+                const warnMsg = `Row ${rowNum} col "${headerOriginal}" invalid value "${rawVal}" (must be 0..100, NULL, - or empty to skip)`;
+                rowWarnings.push(warnMsg);
+                importLogger.warn(`Row warning: invalid score value`, { importId, examId, filePath, where: `row ${rowNum} col "${headerOriginal}" NIM=${nim}`, row: rowNum, nim, header: headerOriginal, rawValue: rawVal, warning: warnMsg });
                 continue;
             }
             if (meta.type === 'section') {
@@ -353,6 +377,7 @@ const processScoreImport = async (job: Job<ScoreImportJobData>): Promise<{ total
         } catch (e: any) {
             failed++;
             errors.push({ row: rowNum, nim, success: false, error: e.message, warnings: rowWarnings });
+            importLogger.warn(`Row failed: validation error`, { importId, examId, filePath, where: `row ${rowNum} NIM=${nim}`, row: rowNum, nim, error: e.message, newAdditional, newOverride, rowWarnings });
             await job.updateProgress({ percent: Math.round(((r + 1) / total) * 100), processed: r + 1, total, success, failed, warnings, errors: errors.slice(-5) });
             continue;
         }
@@ -360,37 +385,39 @@ const processScoreImport = async (job: Job<ScoreImportJobData>): Promise<{ total
         // Perform updates using same rules as PATCH (two separate repo calls)
         try {
             if (hasAdditionalChange) {
-                // If newAdditional is empty, we should still update to empty? But spec says clear column-wise, so if all cleared, set to empty object or null?
-                // If newAdditional empty after deletions, set to null or {}? Existing behavior for clear is null for override, but for additionalScore, null vs {}?
-                // We'll set to newAdditional if not empty, else set to null? Check existing: cert.additionalScore can be null. If we cleared all keys, should we set to null or {}?
-                // We'll set to Object.keys(newAdditional).length === 0 ? null : newAdditional
                 const toSave = Object.keys(newAdditional).length === 0 ? null : newAdditional;
-                // Need to handle null case via updateAdditionalScore? That method expects Record, but we can call with null? Actually updateAdditionalScore expects Record, but we have updateExamScoreOverride for null.
-                // For additionalScore, there is no null clear in original PATCH? It only supports additionalScore object, not null. But we can set to empty object.
-                // For simplicity, if empty, set to null via direct DB? Let's use updateAdditionalScore with empty if needed, but repo may not support null.
-                // We'll check: updateAdditionalScore takes Record<string,number> not null. So we should not set null for additionalScore.
-                // Instead, if empty, set to {} or keep as is.
                 if (toSave === null) {
-                    // Need to handle: create method to clear? For now, set to {}
                     await certRepo.updateAdditionalScore(cert.id, {});
+                    importLogger.info(`Row success: cleared all additionalScore`, { importId, examId, filePath, where: `row ${rowNum} NIM=${nim}`, row: rowNum, nim, examSubmissionId });
                 } else {
                     await certRepo.updateAdditionalScore(cert.id, newAdditional);
+                    importLogger.info(`Row success: updated additionalScore`, { importId, examId, filePath, where: `row ${rowNum} NIM=${nim}`, row: rowNum, nim, examSubmissionId, newAdditional, rowWarnings });
                 }
             }
             if (hasOverrideChange) {
                 const toSaveOverride = Object.keys(newOverride).length === 0 ? null : newOverride;
                 await certRepo.updateExamScoreOverride(cert.id, toSaveOverride);
+                importLogger.info(`Row success: updated examScoreOverride`, { importId, examId, filePath, where: `row ${rowNum} NIM=${nim}`, row: rowNum, nim, examSubmissionId, newOverride: toSaveOverride, rowWarnings });
             }
-            // If no changes (all skipped), still count as success? But per row, if no valid columns, consider warning
-            if (!hasAdditionalChange && !hasOverrideChange && rowWarnings.length > 0) {
+            if (!hasAdditionalChange && !hasOverrideChange) {
+                if (rowWarnings.length > 0) {
+                    warnings.push(...rowWarnings);
+                    importLogger.warn(`Row success with warnings (no changes)`, { importId, examId, filePath, where: `row ${rowNum} NIM=${nim}`, row: rowNum, nim, warnings: rowWarnings });
+                } else {
+                    importLogger.debug(`Row success: no changes (all skipped)`, { importId, examId, filePath, where: `row ${rowNum} NIM=${nim}`, row: rowNum, nim });
+                }
+            } else if (rowWarnings.length > 0) {
                 warnings.push(...rowWarnings);
+                importLogger.warn(`Row success with warnings`, { importId, examId, filePath, where: `row ${rowNum} NIM=${nim}`, row: rowNum, nim, warnings: rowWarnings, newAdditional, newOverride });
+            } else {
+                importLogger.debug(`Row success`, { importId, examId, filePath, where: `row ${rowNum} NIM=${nim}`, row: rowNum, nim, examSubmissionId });
             }
             success++;
-            if (rowWarnings.length > 0) warnings.push(...rowWarnings);
             errors.push({ row: rowNum, nim, success: true, warnings: rowWarnings });
         } catch (e: any) {
             failed++;
             errors.push({ row: rowNum, nim, success: false, error: `DB update failed: ${e.message}`, warnings: rowWarnings });
+            importLogger.error(`Row failed: DB update error`, { importId, examId, filePath, where: `row ${rowNum} NIM=${nim}`, row: rowNum, nim, examSubmissionId, error: e.message, stack: e.stack, rowWarnings });
         }
 
         await job.updateProgress({ percent: Math.round(((r + 1) / total) * 100), processed: r + 1, total, success, failed, warnings, errors: errors.slice(-5) });
@@ -398,16 +425,28 @@ const processScoreImport = async (job: Job<ScoreImportJobData>): Promise<{ total
 
     // Cleanup file
     try {
-        if (fs.existsSync(filePath)) await fs.promises.unlink(filePath);
-    } catch {}
+        if (fs.existsSync(filePath)) {
+            await fs.promises.unlink(filePath);
+            importLogger.info(`Import tmp file cleaned`, { importId, examId, filePath, where: 'cleanup' });
+        }
+    } catch (e: any) {
+        importLogger.warn(`Failed to clean tmp file`, { importId, examId, filePath, where: 'cleanup', error: e.message });
+    }
 
     // Release lock
     try {
         await redisForLock.del(`import:lock:${examId}`);
-    } catch {}
+        importLogger.info(`Import lock released`, { importId, examId, where: 'lock release' });
+    } catch (e: any) {
+        importLogger.warn(`Failed to release lock`, { importId, examId, where: 'lock release', error: e.message });
+    }
 
     const result = { total, success, failed, warnings, errors };
     queueLogger.info(`[ScoreImport] Completed ${importId} success ${success}/${total} failed ${failed}`, { importId, examId });
+    importLogger.info(`Import completed`, { importId, examId, filePath, where: 'completed', total, success, failed, warnings, errorsCount: errors.length });
+    if (failed > 0) {
+        importLogger.warn(`Import completed with failures`, { importId, examId, filePath, where: 'completed', total, success, failed, warnings, errors });
+    }
     return result;
 };
 
@@ -422,16 +461,22 @@ export const scoreImportWorker = new Worker<ScoreImportJobData>(
 
 scoreImportWorker.on('completed', (job: Job<ScoreImportJobData>) => {
     queueLogger.info(`Score import ${job.id} completed`, { importId: job.data.importId });
+    importLogger.info(`Job completed event`, { jobId: job.id, importId: job.data.importId, examId: job.data.examId, filePath: job.data.filePath, where: 'queue completed' });
 });
 
 scoreImportWorker.on('failed', (job: Job<ScoreImportJobData> | undefined, err: Error) => {
     queueLogger.error(`Score import ${job?.id} failed`, { error: err.message });
+    importLogger.error(`Job failed event`, { jobId: job?.id, importId: job?.data?.importId, examId: job?.data?.examId, filePath: job?.data?.filePath, where: 'queue failed', error: err.message, stack: err.stack });
     // Ensure lock released on failure
     if (job?.data.examId) {
-        redisForLock.del(`import:lock:${job.data.examId}`).catch(() => {});
+        redisForLock.del(`import:lock:${job.data.examId}`).catch((e: any) => {
+            importLogger.warn(`Failed to release lock on job failure`, { importId: job.data.importId, examId: job.data.examId, where: 'lock release on failed', error: e.message });
+        });
         // Cleanup file on failure
         const fp = job.data.filePath;
-        if (fp && fs.existsSync(fp)) fs.promises.unlink(fp).catch(() => {});
+        if (fp && fs.existsSync(fp)) fs.promises.unlink(fp).catch((e: any) => {
+            importLogger.warn(`Failed to clean tmp file on job failure`, { importId: job.data.importId, filePath: fp, where: 'cleanup on failed', error: e.message });
+        });
     }
 });
 
