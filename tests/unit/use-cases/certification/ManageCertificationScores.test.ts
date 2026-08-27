@@ -124,8 +124,8 @@ describe('ManageCertificationScores Use Case', () => {
 
     it('should filter certification scores by examId and return latest per user', async () => {
         const examId = 'exam-1';
-        const olderSubmission = { id: 'sub-old', userId: 1, examId, startedAt: new Date('2023-01-01'), submittedAt: new Date('2023-01-01') } as any;
-        const latestSubmission = { id: 'sub-1', userId: 1, examId, startedAt: new Date('2023-02-01'), submittedAt: new Date('2023-02-01') } as any;
+        const olderSubmission = { id: 'sub-old', userId: 1, examId, status: 'submitted', startedAt: new Date('2023-01-01'), submittedAt: new Date('2023-01-01') } as any;
+        const latestSubmission = { id: 'sub-1', userId: 1, examId, status: 'finished-late', startedAt: new Date('2023-02-01'), submittedAt: new Date('2023-02-01') } as any;
         mockSubmissionRepo.findByExamId.mockResolvedValue([olderSubmission, latestSubmission]);
         mockCertificationScoreRepo.findByExamSubmissionId.mockResolvedValue(baseScore);
         // Mock findById for enrichment of the latest score's submission

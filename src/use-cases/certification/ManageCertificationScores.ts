@@ -110,7 +110,7 @@ export class ManageCertificationScores {
             scores = certScores.filter((c): c is CertificationScoreWithUser => c !== null);
         } else {
             const allScores = await this.certificationScoreRepository.findAll();
-            // Deduplicate to latest per user per exam
+            // Deduplicate to latest per user per exam (only finished/finished-late/submitted)
             const enriched = await Promise.all(allScores.map(async s => {
                 const sub = await this.submissionRepository.findById(s.examSubmissionId);
                 return { score: s, submission: sub };
@@ -120,6 +120,13 @@ export class ManageCertificationScores {
                 if (!item.submission) {
                     // Keep scores with missing submission as-is (no dedup)
                     latestMap.set(`no-sub-${item.score.id}`, item);
+                    continue;
+                }
+                // Only consider finished submissions for dedup
+                const status = (item.submission as any).status;
+                if (status !== 'submitted' && status !== 'finished' && status !== 'finished-late') {
+                    // Keep ongoing as separate entry (no dedup) to avoid hiding
+                    latestMap.set(`ongoing-${item.score.id}`, item);
                     continue;
                 }
                 const key = `${item.score.userId}-${item.submission.examId}`;

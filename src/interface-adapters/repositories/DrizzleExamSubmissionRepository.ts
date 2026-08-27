@@ -2,7 +2,7 @@ import { IExamSubmissionRepository } from '../../domain/repositories/IExamSubmis
 import { ExamSubmission } from '../../domain/entities/ExamSubmission';
 import { db } from '../../infrastructure/database/db';
 import { examSubmissionsTable, examsTable, examSectionSubmissionsTable, examSectionsTable } from '../../infrastructure/database/schema';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, sql, inArray } from 'drizzle-orm';
 
 export class DrizzleExamSubmissionRepository implements IExamSubmissionRepository {
     async create(data: Omit<ExamSubmission, 'id'>): Promise<ExamSubmission> {
@@ -31,7 +31,10 @@ export class DrizzleExamSubmissionRepository implements IExamSubmissionRepositor
 
     async findByExamId(examId: string): Promise<ExamSubmission[]> {
         const submissions = await db.select().from(examSubmissionsTable)
-            .where(eq(examSubmissionsTable.examId, examId));
+            .where(and(
+                eq(examSubmissionsTable.examId, examId),
+                inArray(examSubmissionsTable.status, ['submitted', 'finished', 'finished-late'])
+            ));
         return submissions as ExamSubmission[];
     }
 
