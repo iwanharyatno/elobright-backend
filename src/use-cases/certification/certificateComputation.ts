@@ -5,6 +5,7 @@ export interface AdditionalScoreConfig {
 
 export interface SectionScoreInput {
     examSectionId: string;
+    title?: string | null;
     totalScore: number;
     maxPoints: number;
 }
@@ -74,13 +75,23 @@ export const allocateEffectiveWeights = (
 export const computeCertificateScore = (input: CertificateScoreInput): CertificateScoreResult => {
     const effectiveWeights = allocateEffectiveWeights(input.sections, input.weights);
     const overrides = input.overrides || {};
+    // Case-insensitive lookup but preserve original key casing for display
+    const overridesLower = new Map<string, number>();
+    for (const [k, v] of Object.entries(overrides)) {
+        if (typeof v === 'number') overridesLower.set(k.toLowerCase(), v);
+    }
 
     let weightedExamScore = 0;
     const examSections: ExamSectionBreakdown[] = input.sections.map(section => {
-        const overridden = Object.prototype.hasOwnProperty.call(overrides, section.examSectionId)
-            && typeof overrides[section.examSectionId] === 'number';
+        const overrideKey = section.title ?? section.examSectionId;
+        const overrideKeyLower = overrideKey?.toLowerCase();
+        const idLower = section.examSectionId.toLowerCase();
+        const hasTitleOverride = overrideKeyLower != null && overridesLower.has(overrideKeyLower);
+        const hasIdOverride = overridesLower.has(idLower);
+        const overridden = hasTitleOverride || hasIdOverride;
+        const overrideValue = hasTitleOverride ? overridesLower.get(overrideKeyLower!) : overridesLower.get(idLower);
         const computedScaled = section.maxPoints > 0 ? (section.totalScore / section.maxPoints) * 100 : 0;
-        const scaledScore = overridden ? overrides[section.examSectionId] : computedScaled;
+        const scaledScore = overridden ? (overrideValue as number) : computedScaled;
         const effectiveWeight = effectiveWeights.get(section.examSectionId) ?? 0;
         const contribution = scaledScore * effectiveWeight;
 
@@ -98,7 +109,7 @@ export const computeCertificateScore = (input: CertificateScoreInput): Certifica
 
     const additionalTotal = input.additionalScore
         ? Object.entries(input.additionalScore).reduce((sum, [key, value]) => {
-            const config = input.additionalConfigs.find(c => c.scoreName === key);
+            const config = input.additionalConfigs.find(c => c.scoreName.toLowerCase() === key.toLowerCase());
             return sum + value * (config ? config.weight : 0);
         }, 0)
         : 0;

@@ -49,15 +49,19 @@ export class ManageCertificationScores {
         const sections: SectionScoreInput[] = await Promise.all(examSections.map(async (s) => {
             const questions = await this.questionRepository.findBySectionId(s.id);
             const maxPoints = questions.reduce((sum, q) => sum + (q.points || 0), 0);
-            return { examSectionId: s.id, totalScore: totalBySection.get(s.id) ?? 0, maxPoints };
+            return { examSectionId: s.id, title: s.title ?? null, totalScore: totalBySection.get(s.id) ?? 0, maxPoints };
         }));
+
+        const rawConfigs = await this.additionalScoreRepository.findAll();
+        const configs = Array.isArray(rawConfigs) ? rawConfigs : [];
+        const additionalConfigs = configs.map(c => ({ scoreName: c.scoreName, weight: c.weight }));
 
         const { examSections: breakdown, weightedExamScore, finalScore } = computeCertificateScore({
             sections,
             weights,
             overrides,
             additionalScore,
-            additionalConfigs: [],
+            additionalConfigs,
         });
 
         const titleById = new Map(examSections.map(s => [s.id, s.title || null]));
@@ -126,10 +130,22 @@ export class ManageCertificationScores {
 
         if (data.additionalScore) {
             const configuredNames = await this.additionalScoreRepository.findAll();
-            const validNames = new Set(configuredNames.map(s => s.scoreName));
-            const invalidKey = Object.keys(data.additionalScore).find(key => !validNames.has(key));
+            const validNamesLower = new Set(configuredNames.map(s => s.scoreName.toLowerCase()));
+            const invalidKey = Object.keys(data.additionalScore).find(key => !validNamesLower.has(key.toLowerCase()));
             if (invalidKey) {
                 throw new Error(`Unknown additional score name: ${invalidKey}`);
+            }
+        }
+
+        if (data.examScoreOverride) {
+            const submission = await this.submissionRepository.findById(existing.examSubmissionId);
+            if (submission) {
+                const examSections = await this.sectionRepository.findByExamId(submission.examId);
+                const validSectionNamesLower = new Set(examSections.map(s => (s.title ?? s.id).toLowerCase()));
+                const invalidKey = Object.keys(data.examScoreOverride).find(key => !validSectionNamesLower.has(key.toLowerCase()));
+                if (invalidKey) {
+                    throw new Error(`Unknown section name: ${invalidKey}`);
+                }
             }
         }
 

@@ -81,6 +81,7 @@ export class ManageCertificate {
                 const maxPoints = questions.reduce((sum, q) => sum + (q.points || 0), 0);
                 return {
                     examSectionId: s.id,
+                    title: s.title ?? null,
                     totalScore: totalBySection.get(s.id) ?? 0,
                     maxPoints,
                 };

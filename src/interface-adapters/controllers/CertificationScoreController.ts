@@ -5,13 +5,13 @@ import { env } from '../../config/env';
 import { z } from 'zod';
 
 const updateSchema = z.object({
-    additional_score: z.record(z.string(), z.number().min(0).max(100)).optional(),
-    exam_score_override: z.record(z.string().uuid(), z.number().min(0).max(100)).nullable().optional(),
-});
+    additionalScore: z.record(z.string(), z.number().min(0).max(100)).optional(),
+    examScoreOverride: z.record(z.string().min(1), z.number().min(0).max(100)).nullable().optional(),
+}).strict();
 
 const blastEmailSchema = z.object({
-    exam_submission_id: z.string().uuid(),
-});
+    examSubmissionId: z.string().uuid(),
+}).strict();
 
 export class CertificationScoreController {
     constructor(
@@ -21,9 +21,17 @@ export class CertificationScoreController {
 
     getAll = async (req: Request, res: Response, next: NextFunction) => {
         try {
-            const examSubmissionId = typeof req.query.exam_submission_id === 'string'
-                ? req.query.exam_submission_id
+            // Strict camelCase: reject legacy snake_case query
+            if (typeof (req.query as any).exam_submission_id === 'string') {
+                return res.status(400).json({ error: 'Use examSubmissionId (camelCase) query param' });
+            }
+            const examSubmissionId = typeof req.query.examSubmissionId === 'string'
+                ? req.query.examSubmissionId
                 : undefined;
+            if (examSubmissionId) {
+                // Validate uuid if provided
+                try { z.string().uuid().parse(examSubmissionId); } catch (e) { throw e; }
+            }
             const scores = await this.manageCertificationScores.getAll(examSubmissionId);
             res.status(200).json(scores);
         } catch (error) {
@@ -35,15 +43,15 @@ export class CertificationScoreController {
         try {
             const data = updateSchema.parse(req.body);
             const score = await this.manageCertificationScores.update(req.params.id, {
-                additionalScore: data.additional_score,
-                examScoreOverride: data.exam_score_override,
+                additionalScore: data.additionalScore,
+                examScoreOverride: data.examScoreOverride,
             });
             res.status(200).json({ message: 'Certification score updated', score });
         } catch (error: any) {
             if (error.message === 'Certification score not found') {
                 return res.status(404).json({ message: error.message });
             }
-            if (error.message?.startsWith('Unknown additional score name')) {
+            if (error.message?.startsWith('Unknown additional score name') || error.message?.startsWith('Unknown section name')) {
                 return res.status(400).json({ error: error.message });
             }
             next(error);
@@ -68,8 +76,8 @@ export class CertificationScoreController {
 
     blastEmail = async (req: Request, res: Response, next: NextFunction) => {
         try {
-            const { exam_submission_id } = blastEmailSchema.parse(req.body);
-            const { to, fullName, downloadUrl } = await this.manageCertificate.emailBySubmission(exam_submission_id, env.BASE_URL);
+            const { examSubmissionId } = blastEmailSchema.parse(req.body);
+            const { to, fullName, downloadUrl } = await this.manageCertificate.emailBySubmission(examSubmissionId, env.BASE_URL);
             res.status(200).json({
                 message: 'Certificate email sent',
                 to,
