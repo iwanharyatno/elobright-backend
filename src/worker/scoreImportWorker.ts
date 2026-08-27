@@ -236,10 +236,12 @@ const processScoreImport = async (job: Job<ScoreImportJobData>): Promise<{ total
         }
         const userId = student.userId;
 
-        // Find latest exam submission for examId + userId
+        // Find latest exam submission for examId + userId - only finished submissions
         let submissions: any[] = [];
         try {
             submissions = await submissionRepo.findByUserAndExam(userId, examId);
+            // Filter to only finished submissions (submitted/finished/finished-late), do not use ongoing
+            submissions = submissions.filter((s: any) => ['submitted', 'finished', 'finished-late'].includes(s.status));
         } catch (e: any) {
             failed++;
             const errMsg = `Failed to query submissions: ${e.message}`;
