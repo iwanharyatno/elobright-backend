@@ -37,7 +37,8 @@ const manageExamSessions = new ManageExamSessions(
     questionRepository,
     sectionSubmissionRepository,
     sectionRepository,
-    certificationScoreRepository
+    certificationScoreRepository,
+    studentRepository
 );
 const recordUserAnswer = new RecordUserAnswer(
     userAnswerRepository,

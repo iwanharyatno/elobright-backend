@@ -32,4 +32,6 @@ export interface CertificationScoreWithUser extends CertificationScore {
     student?: Student;
     scores?: CertificationSectionScore[];
     overrides?: CertificationSectionOverride[];
+    groupNumber?: string | null;
+    degreeProgram?: string | null;
 }

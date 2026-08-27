@@ -118,7 +118,7 @@ describe('ManageCertificationScores Use Case', () => {
         const result = await manageCertificationScores.getAll();
 
         expect(mockCertificationScoreRepo.findAll).toHaveBeenCalledWith();
-        expect(result).toEqual([{ ...baseScore, originalExamScore: 0, totalScore: 0, scores: [], overrides: [] }]);
+        expect(result).toEqual([{ ...baseScore, originalExamScore: 0, totalScore: 0, scores: [], overrides: [], groupNumber: null, degreeProgram: null, exam: undefined, student: undefined }]);
     });
 
     it('should filter certification scores by exam submission id', async () => {
@@ -127,7 +127,7 @@ describe('ManageCertificationScores Use Case', () => {
         const result = await manageCertificationScores.getAll('sub-1');
 
         expect(mockCertificationScoreRepo.findByExamSubmissionId).toHaveBeenCalledWith('sub-1');
-        expect(result).toEqual([{ ...baseScore, originalExamScore: 0, totalScore: 0, scores: [], overrides: [] }]);
+        expect(result).toEqual([{ ...baseScore, originalExamScore: 0, totalScore: 0, scores: [], overrides: [], groupNumber: null, degreeProgram: null, exam: undefined, student: undefined }]);
     });
 
     it('should compute originalExamScore using per-section weights with equal-split remainder', async () => {

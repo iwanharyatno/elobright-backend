@@ -6,6 +6,7 @@ import { IQuestionRepository } from '../../domain/repositories/IQuestionReposito
 import { IExamSectionSubmissionRepository } from '../../domain/repositories/IExamSectionSubmissionRepository';
 import { IExamSectionRepository } from '../../domain/repositories/IExamSectionRepository';
 import { ICertificationScoreRepository } from '../../domain/repositories/ICertificationScoreRepository';
+import { IStudentRepository } from '../../domain/repositories/IStudentRepository';
 import { ExamSectionSubmission } from '../../domain/entities/ExamSectionSubmission';
 import { omitDeletedAt } from '../../shared/omitDeletedAt';
 
@@ -17,10 +18,11 @@ export class ManageExamSessions {
         private questionRepository: IQuestionRepository,
         private sectionSubmissionRepository: IExamSectionSubmissionRepository,
         private sectionRepository: IExamSectionRepository,
-        private certificationScoreRepository: ICertificationScoreRepository
+        private certificationScoreRepository: ICertificationScoreRepository,
+        private studentRepository?: IStudentRepository
     ) { }
 
-    async startExam(userId: number, examId: string, timezone?: string): Promise<ExamSubmission & { currentSectionSession: ExamSectionSubmission }> {
+    async startExam(userId: number, examId: string, timezone?: string, groupNumber?: string, studyProgram?: string): Promise<ExamSubmission & { currentSectionSession: ExamSectionSubmission }> {
         const exam = await this.examRepository.findById(examId);
         if (!exam) {
             throw new Error('Exam not found');
@@ -89,9 +91,18 @@ export class ManageExamSessions {
 
         const startedAt = new Date();
 
+        // Only on new session: persist study_program to students.degree_program if student exists; ignore for non-student users
+        if (studyProgram && this.studentRepository) {
+            const existingStudent = await this.studentRepository.findByUserId(userId);
+            if (existingStudent) {
+                await this.studentRepository.updateDegreeProgram(userId, studyProgram);
+            }
+        }
+
         const submission = await this.submissionRepository.create({
             userId,
             examId,
+            groupNumber: groupNumber || null,
             status: 'ongoing',
             timezone: timezone || null,
             startedAt,

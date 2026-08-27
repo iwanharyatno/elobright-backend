@@ -73,6 +73,7 @@ export const examSubmissionsTable = pgTable('exam_submissions', {
     id: uuid('id').primaryKey().defaultRandom(),
     userId: integer('user_id').references(() => usersTable.id).notNull(),
     examId: uuid('exam_id').references(() => examsTable.id).notNull(),
+    groupNumber: varchar('group_number', { length: 50 }),
     status: varchar('status', { length: 50 }),
     timezone: varchar('timezone', { length: 100 }),
     startedAt: timestamp('started_at', { withTimezone: true }).defaultNow(),

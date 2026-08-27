@@ -19,4 +19,12 @@ export class DrizzleStudentRepository implements IStudentRepository {
         const results = await db.select().from(studentsTable);
         return results as Student[];
     }
+
+    async updateDegreeProgram(userId: number, degreeProgram: string): Promise<Student | null> {
+        const [updated] = await db.update(studentsTable)
+            .set({ degreeProgram })
+            .where(eq(studentsTable.userId, userId))
+            .returning();
+        return (updated as Student) || null;
+    }
 }

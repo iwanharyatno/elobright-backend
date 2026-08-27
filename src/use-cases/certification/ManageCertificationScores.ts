@@ -102,6 +102,8 @@ export class ManageCertificationScores {
                 score.examScoreOverride ?? null,
                 score.additionalScore
             );
+            const groupNumber = (submission as any)?.groupNumber ?? null;
+            const degreeProgram = (student as any)?.degreeProgram ?? null;
             return {
                 ...score,
                 originalExamScore: weightedExamScore,
@@ -110,6 +112,8 @@ export class ManageCertificationScores {
                 student: student || undefined,
                 scores: sectionScores,
                 overrides: overridesList,
+                groupNumber,
+                degreeProgram,
             };
         }));
     }

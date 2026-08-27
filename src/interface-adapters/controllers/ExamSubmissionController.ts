@@ -9,6 +9,8 @@ const startSchema = z.object({
   userId: z.number().int().positive(),
   examId: z.uuid(),
   timezone: z.string().optional(),
+  group_number: z.string().trim().min(1, 'group_number is required'),
+  study_program: z.string().trim().min(1, 'study_program is required'),
 });
 
 const finishSchema = z.object({
@@ -56,6 +58,8 @@ export class ExamSubmissionController {
         data.userId,
         data.examId,
         data.timezone,
+        data.group_number,
+        data.study_program,
       );
       let endTimeLocale: string | undefined;
       if (
