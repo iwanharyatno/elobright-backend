@@ -12,6 +12,7 @@ import { audioTelemetryRoutes } from "./routes/audioTelemetryRoutes";
 import { certificationAdditionalScoreRoutes } from "./routes/certificationAdditionalScoreRoutes";
 import { certificationScoreRoutes } from "./routes/certificationScoreRoutes";
 import { scoreImportRoutes } from "./routes/scoreImportRoutes";
+import { userRoutes } from "./routes/userRoutes";
 import { errorHandler } from "./middleware/errorHandler";
 import { apiRateLimiter } from "./middleware/rateLimiter";
 import { requestLogger } from "../logger";
@@ -52,6 +53,7 @@ export const createServer = () => {
   app.use("/api/certification-additional-scores", certificationAdditionalScoreRoutes);
   app.use("/api/certification-scores", scoreImportRoutes);
   app.use("/api/certification-scores", certificationScoreRoutes);
+  app.use("/api/users", userRoutes);
 
   // Error Handling Middleware
   app.get("/health", (req, res) => {
