@@ -9,6 +9,11 @@ const getAllQuerySchema = z.object({
     // alternative names for register date filter
     createdAtFrom: z.string().optional(),
     createdAtTo: z.string().optional(),
+    isVerified: z.enum(['true', 'false']).optional().transform(val => val === undefined ? undefined : val === 'true'),
+    // also support boolean string or boolean
+    verified: z.enum(['true', 'false']).optional().transform(val => val === undefined ? undefined : val === 'true'),
+    page: z.coerce.number().int().min(1).optional().default(1),
+    limit: z.coerce.number().int().min(1).max(100).optional().default(10),
 });
 
 const updatePasswordSchema = z.object({
@@ -46,10 +51,13 @@ export class UserController {
                 d.setHours(23, 59, 59, 999);
                 endDate = d;
             }
-            const users = await this.manageUsers.getAll({ search, startDate, endDate });
+            const isVerified = parsed.isVerified ?? parsed.verified;
+            const page = parsed.page ?? 1;
+            const limit = parsed.limit ?? 10;
+            const result = await this.manageUsers.getAll({ search, startDate, endDate, isVerified, page, limit });
             // Omit passwordHash
-            const sanitized = users.map(({ passwordHash, ...rest }) => rest);
-            res.status(200).json(sanitized);
+            const sanitizedData = result.data.map(({ passwordHash, ...rest }: any) => rest);
+            res.status(200).json({ data: sanitizedData, pagination: result.pagination });
         } catch (error) {
             next(error);
         }

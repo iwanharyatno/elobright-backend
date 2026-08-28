@@ -1,4 +1,4 @@
-import { eq, ilike, or, and, gte, lte } from 'drizzle-orm';
+import { eq, ilike, or, and, gte, lte, sql, desc } from 'drizzle-orm';
 import { db } from '../../infrastructure/database/db';
 import { usersTable } from '../../infrastructure/database/schema';
 import { IUserRepository } from '../../domain/repositories/IUserRepository';
@@ -32,7 +32,7 @@ export class DrizzleUserRepository implements IUserRepository {
         return results as User[];
     }
 
-    async findAllWithFilters(filters: { search?: string; startDate?: Date; endDate?: Date }): Promise<User[]> {
+    async findAllWithFilters(filters: { search?: string; startDate?: Date; endDate?: Date; isVerified?: boolean; page?: number; limit?: number }): Promise<{ users: User[]; total: number }> {
         const conditions: any[] = [];
         if (filters.search) {
             const pattern = `%${filters.search}%`;
@@ -44,12 +44,22 @@ export class DrizzleUserRepository implements IUserRepository {
         if (filters.endDate) {
             conditions.push(lte(usersTable.createdAt, filters.endDate));
         }
-        if (conditions.length === 0) {
-            const results = await db.select().from(usersTable);
-            return results as User[];
+        if (filters.isVerified !== undefined) {
+            conditions.push(eq(usersTable.isVerified, filters.isVerified));
         }
-        const results = await db.select().from(usersTable).where(and(...conditions));
-        return results as User[];
+        const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+        const countRes = await db.select({ count: sql<number>`count(*)` }).from(usersTable).where(whereClause as any);
+        const total = Number((countRes as any)[0]?.count ?? 0);
+
+        const page = filters.page && filters.page > 0 ? filters.page : 1;
+        const limit = filters.limit && filters.limit > 0 ? Math.min(filters.limit, 100) : 10;
+        const offset = (page - 1) * limit;
+
+        const results = whereClause
+            ? await db.select().from(usersTable).where(whereClause as any).orderBy(desc(usersTable.createdAt)).limit(limit).offset(offset)
+            : await db.select().from(usersTable).orderBy(desc(usersTable.createdAt)).limit(limit).offset(offset);
+        return { users: results as User[], total };
     }
 
     async create(userData: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<User> {

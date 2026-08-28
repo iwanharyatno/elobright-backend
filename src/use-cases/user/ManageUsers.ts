@@ -18,17 +18,21 @@ export class ManageUsers {
         private emailService: IEmailService
     ) {}
 
-    async getAll(filters: { search?: string; startDate?: Date; endDate?: Date }): Promise<UserWithStudent[]> {
-        const users = await this.userRepository.findAllWithFilters(filters);
+    async getAll(filters: { search?: string; startDate?: Date; endDate?: Date; isVerified?: boolean; page?: number; limit?: number }): Promise<{ data: UserWithStudent[]; pagination: { total: number; page: number; limit: number; totalPages: number } }> {
+        const page = filters.page && filters.page > 0 ? filters.page : 1;
+        const limit = filters.limit && filters.limit > 0 ? Math.min(filters.limit, 100) : 10;
+        const { users, total } = await this.userRepository.findAllWithFilters({ ...filters, page, limit });
         const students = await this.studentRepository.findAll();
         const studentByUserId = new Map<number, Student>();
         for (const s of students) {
             studentByUserId.set(s.userId, s);
         }
-        return users.map(u => ({
+        const data = users.map(u => ({
             ...u,
             student: studentByUserId.get(u.id) || null,
         }));
+        const totalPages = Math.ceil(total / limit) || 1;
+        return { data, pagination: { total, page, limit, totalPages } };
     }
 
     async updatePassword(userId: number, newPassword: string): Promise<User> {

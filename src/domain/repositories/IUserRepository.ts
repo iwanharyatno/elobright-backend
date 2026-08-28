@@ -4,7 +4,7 @@ export interface IUserRepository {
     findById(id: number): Promise<User | null>;
     findByEmail(email: string): Promise<User | null>;
     findAll(): Promise<User[]>;
-    findAllWithFilters(filters: { search?: string; startDate?: Date; endDate?: Date }): Promise<User[]>;
+    findAllWithFilters(filters: { search?: string; startDate?: Date; endDate?: Date; isVerified?: boolean; page?: number; limit?: number }): Promise<{ users: User[]; total: number }>;
     create(user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<User>;
     updateVerificationCode(userId: number, code: string, expiresAt: Date): Promise<User | null>;
     markEmailVerified(userId: number): Promise<User | null>;
