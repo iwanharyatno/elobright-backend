@@ -2,26 +2,20 @@ import PDFDocument from 'pdfkit';
 import path from 'path';
 import fs from 'fs';
 
-export interface CertificateSectionScore {
-    title: string;
-    scaledScore: number;
-    effectiveWeight: number;
-    overridden: boolean;
-}
-
 export interface CertificatePdfData {
     fullName: string;
-    email: string;
-    examTitle: string | null;
-    examScore: number;
     finalScore: number;
-    sectionScores?: CertificateSectionScore[];
-    additionalScores: Record<string, number> | null;
 }
 
-const BACKGROUND_IMAGE_PATH = path.join(process.cwd(), 'assets', 'certificate-background.jpeg');
+const FRONT_IMAGE_PATH = path.join(process.cwd(), 'assets', 'Sertif_Front.jpeg');
+const BACK_IMAGE_PATH = path.join(process.cwd(), 'assets', 'Sertif_Back.jpeg');
 
-const formatScore = (value: number): string => value.toFixed(1);
+const getProficiencyLevel = (score: number): string => {
+    if (score >= 80) return 'EXCELLENT';
+    if (score >= 60) return 'GOOD';
+    if (score >= 30) return 'FAIR';
+    return 'POOR';
+};
 
 export const createCertificatePdf = async (data: CertificatePdfData): Promise<Buffer> => {
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 0 });
@@ -37,51 +31,38 @@ export const createCertificatePdf = async (data: CertificatePdfData): Promise<Bu
     const pageWidth = doc.page.width;
     const pageHeight = doc.page.height;
 
-    if (fs.existsSync(BACKGROUND_IMAGE_PATH)) {
-        doc.image(BACKGROUND_IMAGE_PATH, 0, 0, { width: pageWidth, height: pageHeight });
+    if (fs.existsSync(FRONT_IMAGE_PATH)) {
+        doc.image(FRONT_IMAGE_PATH, 0, 0, { width: pageWidth, height: pageHeight });
     } else {
         doc.rect(0, 0, pageWidth, pageHeight).fill('#ffffff');
     }
 
-    const drawCentered = (text: string, y: number, size: number, font: string, color: string, maxWidth = pageWidth * 0.8) => {
-        const boxX = (pageWidth - maxWidth) / 2;
-        doc.font(font).fontSize(size).fillColor(color).text(text, boxX, y, {
-            align: 'center',
-            width: maxWidth,
-        });
-    };
+    const nameY = pageHeight * 0.420;
+    doc.font('Helvetica-Bold')
+       .fontSize(30)
+       .fillColor('#1e3a5f')
+       .text(data.fullName.toUpperCase(), 0, nameY, {
+           align: 'center',
+           width: pageWidth
+       });
 
-    drawCentered('CERTIFICATE OF ACHIEVEMENT', pageHeight * 0.16, 34, 'Helvetica-Bold', '#1e3a5f');
-    drawCentered('This is to certify that', pageHeight * 0.28, 14, 'Helvetica', '#555555');
-    drawCentered(data.fullName, pageHeight * 0.36, 42, 'Helvetica-Bold', '#1e3a5f');
-    drawCentered(
-        `has successfully completed the ${data.examTitle || 'exam'} assessment.`,
-        pageHeight * 0.52,
-        14,
-        'Helvetica',
-        '#555555'
-    );
+    const proficiencyY = pageHeight * 0.615;
+    const proficiencyText = getProficiencyLevel(data.finalScore);
+    doc.font('Helvetica-Bold')
+       .fontSize(22)
+       .fillColor('#4a154b')
+       .text(proficiencyText, 0, proficiencyY, {
+           align: 'center',
+           width: pageWidth
+       });
 
-    drawCentered(`Total Score: ${formatScore(data.finalScore)}`, pageHeight * 0.62, 28, 'Helvetica-Bold', '#1e3a5f');
+    doc.addPage({ size: 'A4', layout: 'landscape', margin: 0 });
 
-    const sectionLines: string[] = (data.sectionScores || []).map(s =>
-        `${s.title}: ${formatScore(s.scaledScore)}${s.overridden ? ' *' : ''} (weight ${Math.round(s.effectiveWeight * 100)}%)`
-    );
-    if (sectionLines.length > 0) {
-        sectionLines.push(`Exam Score (weighted): ${formatScore(data.examScore)}${(data.sectionScores || []).some(s => s.overridden) ? ' *' : ''}`);
+    if (fs.existsSync(BACK_IMAGE_PATH)) {
+        doc.image(BACK_IMAGE_PATH, 0, 0, { width: pageWidth, height: pageHeight });
     } else {
-        sectionLines.push(`Exam Score: ${formatScore(data.examScore)}`);
+        doc.rect(0, 0, pageWidth, pageHeight).fill('#ffffff');
     }
-
-    if (data.additionalScores && Object.keys(data.additionalScores).length > 0) {
-        sectionLines.push(...Object.entries(data.additionalScores).map(([name, value]) => `${name}: ${value}`));
-    }
-
-    sectionLines.forEach((line, index) => {
-        drawCentered(line, pageHeight * 0.7 + index * pageHeight * 0.03, 12, 'Helvetica', '#555555');
-    });
-
-    drawCentered(`Issued to ${data.email}`, pageHeight * 0.88, 10, 'Helvetica', '#888888');
 
     doc.end();
     await completed;
