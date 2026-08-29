@@ -37,7 +37,7 @@ export const createCertificatePdf = async (data: CertificatePdfData): Promise<Bu
         doc.rect(0, 0, pageWidth, pageHeight).fill('#ffffff');
     }
 
-    const nameY = pageHeight * 0.420;
+    const nameY = pageHeight * 0.430;
     doc.font('Helvetica-Bold')
        .fontSize(30)
        .fillColor('#1e3a5f')
@@ -46,10 +46,10 @@ export const createCertificatePdf = async (data: CertificatePdfData): Promise<Bu
            width: pageWidth
        });
 
-    const proficiencyY = pageHeight * 0.615;
+    const proficiencyY = pageHeight * 0.625;
     const proficiencyText = getProficiencyLevel(data.finalScore);
     doc.font('Helvetica-Bold')
-       .fontSize(22)
+       .fontSize(24)
        .fillColor('#4a154b')
        .text(proficiencyText, 0, proficiencyY, {
            align: 'center',
