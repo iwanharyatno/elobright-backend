@@ -46,7 +46,7 @@ export const createCertificatePdf = async (data: CertificatePdfData): Promise<Bu
            width: pageWidth
        });
 
-    const proficiencyY = pageHeight * 0.625;
+    const proficiencyY = pageHeight * 0.623;
     const proficiencyText = getProficiencyLevel(data.finalScore);
     doc.font('Helvetica-Bold')
        .fontSize(24)
