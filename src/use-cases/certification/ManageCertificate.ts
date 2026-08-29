@@ -67,7 +67,6 @@ export class ManageCertificate {
 
         let sections: SectionScoreInput[] = [];
         let weights: SectionWeightInput[] = [];
-        let sectionTitles = new Map<string, string>();
 
         if (exam) {
             const examSections = await this.sectionRepository.findByExamId(exam.id);
@@ -75,7 +74,6 @@ export class ManageCertificate {
             const totalBySection = new Map(sectionSubmissions.map(ss => [ss.examSectionId, ss.totalScore || 0]));
 
             weights = examSections.map(s => ({ examSectionId: s.id, weight: s.weight ?? null }));
-            sectionTitles = new Map(examSections.map(s => [s.id, s.title || s.id]));
             sections = await Promise.all(examSections.map(async (s) => {
                 const questions = await this.questionRepository.findBySectionId(s.id);
                 const maxPoints = questions.reduce((sum, q) => sum + (q.points || 0), 0);
@@ -89,7 +87,7 @@ export class ManageCertificate {
         }
 
         const configs = await this.additionalScoreRepository.findAll();
-        const { examSections: breakdown, weightedExamScore, finalScore } = computeCertificateScore({
+        const { finalScore } = computeCertificateScore({
             sections,
             weights,
             overrides: score.examScoreOverride ?? null,
@@ -99,17 +97,7 @@ export class ManageCertificate {
 
         return {
             fullName: user.fullName || user.email,
-            email: user.email,
-            examTitle: exam?.title || null,
-            examScore: weightedExamScore,
             finalScore,
-            sectionScores: breakdown.map(b => ({
-                title: sectionTitles.get(b.examSectionId) || b.examSectionId,
-                scaledScore: b.scaledScore,
-                effectiveWeight: b.effectiveWeight,
-                overridden: b.overridden,
-            })),
-            additionalScores: score.additionalScore,
         };
     }
 }
