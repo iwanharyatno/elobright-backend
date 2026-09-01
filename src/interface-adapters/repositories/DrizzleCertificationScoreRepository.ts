@@ -1,6 +1,6 @@
-import { eq } from 'drizzle-orm';
+import { eq, ilike, or, and } from 'drizzle-orm';
 import { db } from '../../infrastructure/database/db';
-import { certificationScoresTable, usersTable } from '../../infrastructure/database/schema';
+import { certificationScoresTable, usersTable, studentsTable, examSubmissionsTable } from '../../infrastructure/database/schema';
 import { ICertificationScoreRepository } from '../../domain/repositories/ICertificationScoreRepository';
 import { CertificationScore, CertificationScoreWithUser } from '../../domain/entities/CertificationScore';
 const toPublicUser = (user: typeof usersTable.$inferSelect) => ({
@@ -51,6 +51,42 @@ export class DrizzleCertificationScoreRepository implements ICertificationScoreR
             ...(score as CertificationScore),
             user: user ? toPublicUser(user) : undefined,
         }));
+    }
+
+    async findFiltered(filters: { examId?: string; search?: string }): Promise<CertificationScoreWithUser[]> {
+        const conditions: any[] = [];
+        // Search filter: case-insensitive ilike on users.fullName, users.email, students.studentId
+        if (filters.search && filters.search.trim() !== '') {
+            const pattern = `%${filters.search.trim()}%`;
+            conditions.push(
+                or(
+                    ilike(usersTable.fullName, pattern),
+                    ilike(usersTable.email, pattern),
+                    ilike(studentsTable.studentId, pattern)
+                )
+            );
+        }
+
+        // ExamId filter via exam_submissions
+        if (filters.examId) {
+            conditions.push(eq(examSubmissionsTable.examId, filters.examId));
+        }
+
+        if (conditions.length > 0) {
+            const rows = await db
+                .select({ score: certificationScoresTable, user: usersTable })
+                .from(certificationScoresTable)
+                .leftJoin(usersTable, eq(certificationScoresTable.userId, usersTable.id))
+                .leftJoin(studentsTable, eq(studentsTable.userId, certificationScoresTable.userId))
+                .leftJoin(examSubmissionsTable, eq(examSubmissionsTable.id, certificationScoresTable.examSubmissionId))
+                .where(conditions.length === 1 ? conditions[0] : and(...conditions));
+            return rows.map(({ score, user }) => ({
+                ...(score as CertificationScore),
+                user: user ? toPublicUser(user) : undefined,
+            }));
+        }
+
+        return this.findAll();
     }
 
     async updateAdditionalScore(id: string, additionalScore: Record<string, number>): Promise<CertificationScore | null> {

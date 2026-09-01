@@ -5,6 +5,7 @@ export interface ICertificationScoreRepository {
     findById(id: string): Promise<CertificationScore | null>;
     findByExamSubmissionId(examSubmissionId: string): Promise<CertificationScoreWithUser | null>;
     findAll(): Promise<CertificationScoreWithUser[]>;
+    findFiltered(filters: { examId?: string; search?: string }): Promise<CertificationScoreWithUser[]>;
     updateAdditionalScore(id: string, additionalScore: Record<string, number>): Promise<CertificationScore | null>;
     updateExamScoreOverride(id: string, examScoreOverride: Record<string, number> | null): Promise<CertificationScore | null>;
 }

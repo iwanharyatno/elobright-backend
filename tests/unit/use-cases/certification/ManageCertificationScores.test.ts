@@ -34,6 +34,7 @@ describe('ManageCertificationScores Use Case', () => {
             findById: jest.fn(),
             findByExamSubmissionId: jest.fn(),
             findAll: jest.fn(),
+            findFiltered: jest.fn(),
             updateAdditionalScore: jest.fn(),
             updateExamScoreOverride: jest.fn()
         } as unknown as jest.Mocked<ICertificationScoreRepository>;
@@ -124,21 +125,25 @@ describe('ManageCertificationScores Use Case', () => {
 
     it('should filter certification scores by examId and return latest per user', async () => {
         const examId = 'exam-1';
+        // findFiltered returns all matching scores (including older), dedup should keep latest
+        const olderScore = { ...baseScore, id: 'cert-old', examSubmissionId: 'sub-old' };
+        const latestScore = { ...baseScore, id: 'cert-1', examSubmissionId: 'sub-1' };
+        mockCertificationScoreRepo.findFiltered.mockResolvedValue([olderScore, latestScore] as any);
         const olderSubmission = { id: 'sub-old', userId: 1, examId, status: 'submitted', startedAt: new Date('2023-01-01'), submittedAt: new Date('2023-01-01') } as any;
         const latestSubmission = { id: 'sub-1', userId: 1, examId, status: 'finished-late', startedAt: new Date('2023-02-01'), submittedAt: new Date('2023-02-01') } as any;
-        mockSubmissionRepo.findByExamId.mockResolvedValue([olderSubmission, latestSubmission]);
-        mockCertificationScoreRepo.findByExamSubmissionId.mockResolvedValue(baseScore);
-        // Mock findById for enrichment of the latest score's submission
-        mockSubmissionRepo.findById.mockResolvedValue(latestSubmission);
+        mockSubmissionRepo.findById.mockImplementation(async (id: string) => {
+            if (id === 'sub-old') return olderSubmission;
+            if (id === 'sub-1') return latestSubmission;
+            return null as any;
+        });
         mockExamRepo.findById.mockResolvedValue(null);
         mockStudentRepo.findByUserId.mockResolvedValue(null);
 
         const result = await manageCertificationScores.getAll(examId);
 
-        expect(mockSubmissionRepo.findByExamId).toHaveBeenCalledWith(examId);
-        expect(mockCertificationScoreRepo.findByExamSubmissionId).toHaveBeenCalledWith('sub-1');
+        expect(mockCertificationScoreRepo.findFiltered).toHaveBeenCalledWith({ examId, search: undefined });
         // Should only return the latest (sub-1), not the older one
-        expect(result).toEqual([{ ...baseScore, originalExamScore: 0, totalScore: 0, scores: [], overrides: [], groupNumber: null, degreeProgram: null, exam: undefined, student: undefined }]);
+        expect(result).toEqual([{ ...latestScore, originalExamScore: 0, totalScore: 0, scores: [], overrides: [], groupNumber: null, degreeProgram: null, exam: undefined, student: undefined }]);
         expect(result).toHaveLength(1);
     });
 
@@ -248,12 +253,39 @@ describe('ManageCertificationScores Use Case', () => {
     });
 
     it('should return empty array when filtering by unknown examId', async () => {
-        mockSubmissionRepo.findByExamId.mockResolvedValue([]);
+        mockCertificationScoreRepo.findFiltered.mockResolvedValue([]);
 
         const result = await manageCertificationScores.getAll('missing-exam-id');
 
-        expect(mockSubmissionRepo.findByExamId).toHaveBeenCalledWith('missing-exam-id');
+        expect(mockCertificationScoreRepo.findFiltered).toHaveBeenCalledWith({ examId: 'missing-exam-id', search: undefined });
         expect(result).toEqual([]);
+    });
+
+    it('should filter by search (name/nim/email) case-insensitive and retain examId', async () => {
+        const examId = 'exam-1';
+        const search = 'JoHn';
+        const matchingScore = { ...baseScore, id: 'cert-match', userId: 1, examSubmissionId: 'sub-1' };
+        const nonMatchingScore = { ...baseScore, id: 'cert-other', userId: 2, examSubmissionId: 'sub-2' };
+        // findFiltered is database-level, so it should already filter, but we test that getAll forwards search
+        mockCertificationScoreRepo.findFiltered.mockResolvedValue([matchingScore] as any);
+        mockSubmissionRepo.findById.mockResolvedValue({ id: 'sub-1', userId: 1, examId, status: 'submitted', startedAt: new Date(), submittedAt: new Date() } as any);
+        mockExamRepo.findById.mockResolvedValue(null);
+        mockStudentRepo.findByUserId.mockResolvedValue(null);
+
+        const result = await manageCertificationScores.getAll(examId, search);
+
+        expect(mockCertificationScoreRepo.findFiltered).toHaveBeenCalledWith({ examId, search });
+        expect(result).toHaveLength(1);
+        expect(result[0].id).toBe('cert-match');
+    });
+
+    it('should treat empty search as no filter', async () => {
+        mockCertificationScoreRepo.findAll.mockResolvedValue([baseScore]);
+
+        const result = await manageCertificationScores.getAll(undefined, '   ');
+
+        expect(mockCertificationScoreRepo.findAll).toHaveBeenCalled();
+        expect(result).toHaveLength(1);
     });
 
     it('should update additional score when all keys are valid', async () => {

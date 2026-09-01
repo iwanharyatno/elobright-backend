@@ -30,7 +30,11 @@ export class CertificationScoreController {
             if (examId) {
                 try { z.string().uuid().parse(examId); } catch (e) { throw e; }
             }
-            const scores = await this.manageCertificationScores.getAll(examId);
+            const search = typeof req.query.search === 'string' ? req.query.search.trim() || undefined : undefined;
+            // Also support alias q
+            const searchAlias = typeof (req.query as any).q === 'string' ? (req.query as any).q.trim() || undefined : undefined;
+            const finalSearch = search ?? searchAlias;
+            const scores = await this.manageCertificationScores.getAll(examId, finalSearch);
             res.status(200).json(scores);
         } catch (error) {
             next(error);
