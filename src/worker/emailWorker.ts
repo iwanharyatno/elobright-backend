@@ -4,7 +4,7 @@ import { env } from '../config/env';
 import { EmailJobData, VerificationJobData, CertificateJobData, PasswordResetJobData } from './emailQueue';
 import { verificationEmailTemplate, certificateEmailTemplate, passwordResetEmailTemplate } from '../infrastructure/email/emailTemplates';
 import { queueLogger } from '../infrastructure/logger';
-import { checkEmailDailyLimit, recordEmailSent, getRateLimitStatus } from './emailRateLimiter';
+import { getRateLimitStatus, tryAcquireEmailSlot, removeEmailRecord } from './emailRateLimiter';
 
 const connection = {
   host: env.REDIS_HOST,
@@ -75,25 +75,22 @@ const processPasswordResetEmail = async (job: Job<PasswordResetJobData>): Promis
 export const emailWorker = new Worker<EmailJobData>(
   'email',
   async (job: Job<EmailJobData>) => {
-    // Enqueue is never blocked — worker decides to delay if limit reached
-    const preCheck = await checkEmailDailyLimit();
-    if (!preCheck.allowed) {
-      const delay = Math.max(0, preCheck.resetAt - Date.now()) + 1000;
+    // Atomic tryAcquire — ensures only 2 per window succeed, rest are delayed; failed don't count (removed on catch)
+    const acquire = await tryAcquireEmailSlot(job.id as string);
+    if (!acquire.allowed) {
+      const delay = Math.max(0, acquire.resetAt - Date.now()) + 1000;
       queueLogger.warn(`Email daily limit reached — delaying job to next window`, {
         jobId: job.id,
         type: job.data.type,
         to: (job.data as any).to,
-        current: preCheck.current,
+        current: acquire.current,
         remaining: 0,
-        limit: preCheck.limit,
-        resetAt: new Date(preCheck.resetAt).toISOString(),
+        limit: acquire.limit,
+        resetAt: new Date(acquire.resetAt).toISOString(),
         delayMs: delay,
-        window: preCheck.window,
+        window: acquire.window,
       });
-      // Move to delayed and throw to trigger retry; failed handler will treat as delayed (warn, not count)
-      // Use job token if available, otherwise let BullMQ handle retry via throw
       try {
-        // BullMQ 6 requires token for moveToDelayed when called inside processor
         const token = (job as any).token;
         if (token) {
           await (job as any).moveToDelayed(Date.now() + delay, token);
@@ -104,32 +101,38 @@ export const emailWorker = new Worker<EmailJobData>(
         queueLogger.error(`Failed to move job to delayed`, {
           jobId: job.id,
           error: e.message,
-          current: preCheck.current,
+          current: acquire.current,
           remaining: 0,
-          limit: preCheck.limit,
-          resetAt: new Date(preCheck.resetAt).toISOString(),
-          window: preCheck.window,
+          limit: acquire.limit,
+          resetAt: new Date(acquire.resetAt).toISOString(),
+          window: acquire.window,
         });
+        // Remove the acquired slot since we failed to delay properly and will throw
+        try { await removeEmailRecord(job.id as string); } catch {}
       }
-      throw new Error(`Email daily limit exceeded — delayed ${delay}ms until ${new Date(preCheck.resetAt).toISOString()}`);
+      throw new Error(`Email daily limit exceeded — delayed ${delay}ms until ${new Date(acquire.resetAt).toISOString()}`);
     }
 
-    switch (job.data.type) {
-      case 'verification':
-        await processVerificationEmail(job as Job<VerificationJobData>);
-        break;
-      case 'certificate':
-        await processCertificateEmail(job as Job<CertificateJobData>);
-        break;
-      case 'password-reset':
-        await processPasswordResetEmail(job as Job<PasswordResetJobData>);
-        break;
-      default:
-        throw new Error(`Unknown email job type: ${(job.data as any).type}`);
+    try {
+      switch (job.data.type) {
+        case 'verification':
+          await processVerificationEmail(job as Job<VerificationJobData>);
+          break;
+        case 'certificate':
+          await processCertificateEmail(job as Job<CertificateJobData>);
+          break;
+        case 'password-reset':
+          await processPasswordResetEmail(job as Job<PasswordResetJobData>);
+          break;
+        default:
+          throw new Error(`Unknown email job type: ${(job.data as any).type}`);
+      }
+    } catch (e: any) {
+      // Failed sends must NOT count — remove the slot we just acquired
+      try { await removeEmailRecord(job.id as string); } catch {}
+      throw e;
     }
-
-    // Only successful sends count (failed don't count)
-    await recordEmailSent(job.id as string);
+    // Success already counted via tryAcquire (atomic), no need to record again
   },
   { connection, lockDuration: 120000, lockRenewTime: 30000 }
 );

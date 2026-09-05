@@ -2,8 +2,9 @@ import Redis from 'ioredis';
 import { env } from '../config/env';
 
 const KEY = 'email:daily:zset';
-const WINDOW_MS = 24 * 60 * 60 * 1000;
-const EXPIRE_SECONDS = 25 * 60 * 60;
+const WINDOW_MS = env.EMAIL_JOB_WINDOW_MS;
+const EXPIRE_SECONDS = Math.ceil(WINDOW_MS / 1000) + 3600;
+const WINDOW_LABEL = WINDOW_MS === 24 * 60 * 60 * 1000 ? '24h rolling' : `${Math.round(WINDOW_MS / 60000)}m rolling`;
 
 const redis = new Redis({
     host: env.REDIS_HOST,
@@ -44,11 +45,11 @@ export const getRateLimitStatus = async (): Promise<RateLimitStatus> => {
         const limit = env.EMAIL_JOB_DAILY_LIMIT;
         const remaining = Math.max(0, limit - current);
         const resetAt = earliest ? earliest + WINDOW_MS : now;
-        return { current, remaining, limit, resetAt, window: '24h rolling' };
+        return { current, remaining, limit, resetAt, window: WINDOW_LABEL };
     } catch {
         // Redis unavailable — fail open
         const limit = env.EMAIL_JOB_DAILY_LIMIT;
-        return { current: 0, remaining: limit, limit, resetAt: Date.now(), window: '24h rolling' };
+        return { current: 0, remaining: limit, limit, resetAt: Date.now(), window: WINDOW_LABEL };
     }
 };
 
@@ -58,8 +59,62 @@ export const checkEmailDailyLimit = async (): Promise<{ allowed: boolean } & Rat
         return { allowed: status.current < status.limit, ...status };
     } catch {
         const limit = env.EMAIL_JOB_DAILY_LIMIT;
-        return { allowed: true, current: 0, remaining: limit, limit, resetAt: Date.now(), window: '24h rolling' };
+        return { allowed: true, current: 0, remaining: limit, limit, resetAt: Date.now(), window: WINDOW_LABEL };
     }
+};
+
+const LUA_TRY_ACQUIRE = `
+local key = KEYS[1]
+local now = tonumber(ARGV[1])
+local windowStart = tonumber(ARGV[2])
+local limit = tonumber(ARGV[3])
+local member = ARGV[4]
+local expire = tonumber(ARGV[5])
+local windowMs = tonumber(ARGV[6])
+redis.call('ZREMRANGEBYSCORE', key, 0, windowStart)
+local current = redis.call('ZCARD', key)
+if current >= limit then
+  local earliest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
+  local resetAt = now
+  if #earliest >= 2 then
+    resetAt = tonumber(earliest[2]) + windowMs
+  end
+  redis.call('EXPIRE', key, expire)
+  return {0, current, resetAt}
+end
+redis.call('ZADD', key, now, member)
+redis.call('EXPIRE', key, expire)
+return {1, current + 1, 0}
+`;
+
+export const tryAcquireEmailSlot = async (jobId?: string): Promise<{ allowed: boolean; current: number; remaining: number; limit: number; resetAt: number; window: string }> => {
+    try {
+        const now = Date.now();
+        const windowStart = now - WINDOW_MS;
+        const member = `${now}:${jobId ?? Math.random().toString(36).slice(2, 8)}`;
+        const limit = env.EMAIL_JOB_DAILY_LIMIT;
+        const result = (await redis.eval(LUA_TRY_ACQUIRE, 1, KEY, now.toString(), windowStart.toString(), limit.toString(), member, EXPIRE_SECONDS.toString(), WINDOW_MS.toString())) as [number, number, number];
+        const allowed = result[0] === 1;
+        // After tryAcquire, get fresh status for accurate remaining/resetAt
+        const status = await getRateLimitStatus();
+        return { allowed, current: status.current, remaining: status.remaining, limit: status.limit, resetAt: status.resetAt, window: status.window };
+    } catch {
+        const limit = env.EMAIL_JOB_DAILY_LIMIT;
+        return { allowed: true, current: 0, remaining: limit, limit, resetAt: Date.now(), window: WINDOW_LABEL };
+    }
+};
+
+export const removeEmailRecord = async (jobId: string): Promise<void> => {
+    try {
+        // Find and remove the member for this jobId (search by suffix)
+        const members = await redis.zrange(KEY, '0', '-1');
+        for (const m of members) {
+            if (m.endsWith(`:${jobId}`)) {
+                await redis.zrem(KEY, m);
+                break;
+            }
+        }
+    } catch {}
 };
 
 export const recordEmailSent = async (jobId?: string): Promise<RateLimitStatus> => {
