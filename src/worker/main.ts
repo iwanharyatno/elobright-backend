@@ -2,6 +2,7 @@ import { emailWorker } from './emailWorker';
 import { closeEmailQueue } from './emailQueue';
 import { scoreImportWorker } from './scoreImportWorker';
 import { closeScoreImportQueue } from './scoreImportQueue';
+import { closeEmailRateLimiter } from './emailRateLimiter';
 
 console.log('[Worker] Starting worker processes...');
 
@@ -11,6 +12,7 @@ const shutdown = async (signal: string) => {
   await scoreImportWorker.close();
   await closeEmailQueue();
   await closeScoreImportQueue();
+  await closeEmailRateLimiter();
   console.log('[Worker] Shutdown complete');
   process.exit(0);
 };

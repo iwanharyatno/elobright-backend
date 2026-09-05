@@ -20,6 +20,7 @@ const envSchema = z.object({
     REDIS_PASSWORD: z.string().default(''),
     RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
     RATE_LIMIT_MAX: z.coerce.number().int().positive().default(200),
+    EMAIL_JOB_DAILY_LIMIT: z.coerce.number().int().positive().default(80),
 });
 
 const isTest = process.env.NODE_ENV === 'test';
@@ -46,7 +47,8 @@ export const env = _env.success ? _env.data : {
     REDIS_PORT: 6379,
     REDIS_PASSWORD: '',
     RATE_LIMIT_WINDOW_MS: 60_000,
-    RATE_LIMIT_MAX: 200
+    RATE_LIMIT_MAX: 200,
+    EMAIL_JOB_DAILY_LIMIT: 80
 } as z.infer<typeof envSchema>;
 
 
