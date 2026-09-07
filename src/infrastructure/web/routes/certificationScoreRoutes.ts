@@ -36,7 +36,8 @@ const manageCertificationScores = new ManageCertificationScores(
     questionRepository,
     submissionRepository,
     examRepository,
-    studentRepository
+    studentRepository,
+    userRepository
 );
 const manageCertificate = new ManageCertificate(
     certificationScoreRepository,
@@ -52,8 +53,9 @@ const manageCertificate = new ManageCertificate(
 const controller = new CertificationScoreController(manageCertificationScores, manageCertificate);
 
 router.get('/', authMiddleware(ROLE_ADMIN), controller.getAll);
-router.patch('/:id', authMiddleware(ROLE_ADMIN), controller.update);
+router.post('/manual', authMiddleware(ROLE_ADMIN), controller.createManual);
 router.post('/blast-email', authMiddleware(ROLE_ADMIN), controller.blastEmail);
+router.patch('/:id', authMiddleware(ROLE_ADMIN), controller.update);
 router.get('/:id/download', controller.downloadPdf);
 
 export { router as certificationScoreRoutes };

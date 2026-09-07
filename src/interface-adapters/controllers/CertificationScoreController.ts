@@ -13,6 +13,18 @@ const blastEmailSchema = z.object({
     examSubmissionId: z.string().uuid(),
 }).strict();
 
+const manualScoreSchema = z.object({
+    fullName: z.string().min(1).max(255),
+    email: z.string().email().max(255),
+    phoneNumber: z.string().max(50).optional(),
+    studentId: z.string().min(1).max(50),
+    degreeProgram: z.string().max(255).optional(),
+    examId: z.string().uuid(),
+    groupNumber: z.string().max(50).optional(),
+    examScoreOverride: z.record(z.string().min(1), z.number().min(0).max(100)).nullable().optional(),
+    additionalScore: z.record(z.string().min(1), z.number().min(0).max(100)).nullable().optional(),
+}).strict();
+
 export class CertificationScoreController {
     constructor(
         private manageCertificationScores: ManageCertificationScores,
@@ -37,6 +49,30 @@ export class CertificationScoreController {
             const scores = await this.manageCertificationScores.getAll(examId, finalSearch);
             res.status(200).json(scores);
         } catch (error) {
+            next(error);
+        }
+    };
+
+    createManual = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const data = manualScoreSchema.parse(req.body);
+            const score = await this.manageCertificationScores.createManualScore({
+                fullName: data.fullName,
+                email: data.email,
+                phoneNumber: data.phoneNumber,
+                studentId: data.studentId,
+                degreeProgram: data.degreeProgram,
+                examId: data.examId,
+                groupNumber: data.groupNumber,
+                examScoreOverride: data.examScoreOverride ?? null,
+                additionalScore: data.additionalScore ?? null,
+            });
+            res.status(201).json({ message: 'Manual certification score created', score });
+        } catch (error: any) {
+            if (error.message === 'Exam not found') return res.status(404).json({ error: error.message });
+            if (error.message?.startsWith('Unknown section name')) return res.status(400).json({ error: error.message });
+            if (error.message?.startsWith('Unknown additional score name')) return res.status(400).json({ error: error.message });
+            if (error.message === 'Student ID already used by another user') return res.status(409).json({ error: error.message });
             next(error);
         }
     };

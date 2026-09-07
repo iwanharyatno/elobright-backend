@@ -7,6 +7,7 @@ import { IQuestionRepository } from '../../../../src/domain/repositories/IQuesti
 import { IExamSubmissionRepository } from '../../../../src/domain/repositories/IExamSubmissionRepository';
 import { IExamRepository } from '../../../../src/domain/repositories/IExamRepository';
 import { IStudentRepository } from '../../../../src/domain/repositories/IStudentRepository';
+import { IUserRepository } from '../../../../src/domain/repositories/IUserRepository';
 import { CertificationScore } from '../../../../src/domain/entities/CertificationScore';
 
 describe('ManageCertificationScores Use Case', () => {
@@ -19,6 +20,7 @@ describe('ManageCertificationScores Use Case', () => {
     let mockSubmissionRepo: jest.Mocked<IExamSubmissionRepository>;
     let mockExamRepo: jest.Mocked<IExamRepository>;
     let mockStudentRepo: jest.Mocked<IStudentRepository>;
+    let mockUserRepo: jest.Mocked<IUserRepository>;
 
     const baseScore: CertificationScore = {
         id: 'cert-1',
@@ -31,6 +33,7 @@ describe('ManageCertificationScores Use Case', () => {
     beforeEach(() => {
         mockCertificationScoreRepo = {
             createForSubmission: jest.fn(),
+            createManual: jest.fn(),
             findById: jest.fn(),
             findByExamSubmissionId: jest.fn(),
             findAll: jest.fn(),
@@ -102,6 +105,20 @@ describe('ManageCertificationScores Use Case', () => {
             findAll: jest.fn()
         } as unknown as jest.Mocked<IStudentRepository>;
 
+        mockUserRepo = {
+            findById: jest.fn(),
+            findByEmail: jest.fn().mockResolvedValue(null),
+            findAll: jest.fn(),
+            findAllWithFilters: jest.fn(),
+            create: jest.fn(),
+            updateVerificationCode: jest.fn(),
+            markEmailVerified: jest.fn(),
+            setVerified: jest.fn(),
+            updateResetPasswordToken: jest.fn(),
+            findByResetPasswordToken: jest.fn(),
+            updatePassword: jest.fn()
+        } as unknown as jest.Mocked<IUserRepository>;
+
         manageCertificationScores = new ManageCertificationScores(
             mockCertificationScoreRepo,
             mockAdditionalScoreRepo,
@@ -110,7 +127,8 @@ describe('ManageCertificationScores Use Case', () => {
             mockQuestionRepo,
             mockSubmissionRepo,
             mockExamRepo,
-            mockStudentRepo
+            mockStudentRepo,
+            mockUserRepo
         );
     });
 

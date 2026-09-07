@@ -2,6 +2,7 @@ import { CertificationScore, CertificationScoreWithUser } from '../entities/Cert
 
 export interface ICertificationScoreRepository {
     createForSubmission(userId: number, examSubmissionId: string): Promise<CertificationScore | null>;
+    createManual(data: { userId: number; examSubmissionId: string; additionalScore: Record<string, number> | null; examScoreOverride: Record<string, number> | null }): Promise<CertificationScore>;
     findById(id: string): Promise<CertificationScore | null>;
     findByExamSubmissionId(examSubmissionId: string): Promise<CertificationScoreWithUser | null>;
     findAll(): Promise<CertificationScoreWithUser[]>;

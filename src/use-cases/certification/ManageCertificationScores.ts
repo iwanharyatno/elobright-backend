@@ -6,8 +6,11 @@ import { IQuestionRepository } from '../../domain/repositories/IQuestionReposito
 import { IExamSubmissionRepository } from '../../domain/repositories/IExamSubmissionRepository';
 import { IExamRepository } from '../../domain/repositories/IExamRepository';
 import { IStudentRepository } from '../../domain/repositories/IStudentRepository';
+import { IUserRepository } from '../../domain/repositories/IUserRepository';
 import { CertificationScore, CertificationScoreWithUser } from '../../domain/entities/CertificationScore';
 import { computeCertificateScore, SectionScoreInput, SectionWeightInput } from './certificateComputation';
+import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 export interface UpdateCertificationScoreData {
     additionalScore?: Record<string, number | null>;
@@ -23,7 +26,8 @@ export class ManageCertificationScores {
         private questionRepository: IQuestionRepository,
         private submissionRepository: IExamSubmissionRepository,
         private examRepository: IExamRepository,
-        private studentRepository: IStudentRepository
+        private studentRepository: IStudentRepository,
+        private userRepository: IUserRepository
     ) { }
 
     private async buildSectionBreakdown(
@@ -192,6 +196,97 @@ export class ManageCertificationScores {
         });
 
         return enrichedScores.map(({ _submittedAt: _, ...rest }) => rest);
+    }
+
+    async createManualScore(data: {
+        fullName: string;
+        email: string;
+        phoneNumber?: string;
+        studentId: string;
+        degreeProgram?: string;
+        examId: string;
+        groupNumber?: string;
+        examScoreOverride?: Record<string, number> | null;
+        additionalScore?: Record<string, number> | null;
+    }): Promise<CertificationScoreWithUser> {
+        const exam = await this.examRepository.findById(data.examId);
+        if (!exam) throw new Error('Exam not found');
+
+        if (data.additionalScore) {
+            const configuredNames = await this.additionalScoreRepository.findAll();
+            const validNamesLower = new Set(configuredNames.map(s => s.scoreName.toLowerCase()));
+            const invalidKey = Object.keys(data.additionalScore).find(key => !validNamesLower.has(key.toLowerCase()));
+            if (invalidKey) throw new Error(`Unknown additional score name: ${invalidKey}`);
+        }
+
+        if (data.examScoreOverride) {
+            const examSections = await this.sectionRepository.findByExamId(data.examId);
+            const validSectionNamesLower = new Set(examSections.map(s => (s.title ?? s.id).toLowerCase()));
+            const invalidKey = Object.keys(data.examScoreOverride).find(key => !validSectionNamesLower.has(key.toLowerCase()));
+            if (invalidKey) throw new Error(`Unknown section name: ${invalidKey}`);
+        }
+
+        let user = await this.userRepository.findByEmail(data.email);
+        if (!user) {
+            const dummyHash = await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 10);
+            user = await this.userRepository.create({
+                email: data.email,
+                passwordHash: dummyHash,
+                fullName: data.fullName,
+                role: 'user',
+                phoneNumber: data.phoneNumber ?? null,
+                isVerified: true,
+            });
+        }
+
+        let student = await this.studentRepository.findByStudentId(data.studentId);
+        if (student && student.userId !== user.id) {
+            throw new Error('Student ID already used by another user');
+        }
+        if (!student) {
+            student = await this.studentRepository.create({
+                studentId: data.studentId,
+                userId: user.id,
+                degreeProgram: data.degreeProgram ?? null,
+            });
+        }
+
+        const submission = await this.submissionRepository.create({
+            userId: user.id,
+            examId: data.examId,
+            groupNumber: data.groupNumber ?? null,
+            status: 'finished',
+            timezone: 'Asia/Jakarta',
+            startedAt: new Date(),
+            submittedAt: new Date(),
+        });
+
+        const score = await this.certificationScoreRepository.createManual({
+            userId: user.id,
+            examSubmissionId: submission.id,
+            additionalScore: data.additionalScore ?? null,
+            examScoreOverride: data.examScoreOverride ?? null,
+        });
+
+        const { scores: sectionScores, overridesList, weightedExamScore, totalScore } = await this.buildSectionBreakdown(
+            data.examId,
+            submission.id,
+            data.examScoreOverride ?? null,
+            data.additionalScore ?? null
+        );
+
+        return {
+            ...score,
+            originalExamScore: weightedExamScore,
+            totalScore,
+            exam,
+            student,
+            user: { id: user.id, email: user.email, fullName: user.fullName, role: user.role, phoneNumber: user.phoneNumber },
+            scores: sectionScores,
+            overrides: overridesList,
+            groupNumber: submission.groupNumber ?? null,
+            degreeProgram: student.degreeProgram ?? null,
+        };
     }
 
     async update(id: string, data: UpdateCertificationScoreData): Promise<CertificationScore | null> {

@@ -21,6 +21,19 @@ export class DrizzleCertificationScoreRepository implements ICertificationScoreR
         return (score as CertificationScore) || null;
     }
 
+    async createManual(data: { userId: number; examSubmissionId: string; additionalScore: Record<string, number> | null; examScoreOverride: Record<string, number> | null }): Promise<CertificationScore> {
+        const [score] = await db
+            .insert(certificationScoresTable)
+            .values({
+                userId: data.userId,
+                examSubmissionId: data.examSubmissionId,
+                additionalScore: data.additionalScore,
+                examScoreOverride: data.examScoreOverride,
+            })
+            .returning();
+        return score as CertificationScore;
+    }
+
     async findById(id: string): Promise<CertificationScore | null> {
         const [score] = await db
             .select()
