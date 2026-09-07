@@ -12,6 +12,7 @@ import { audioTelemetryRoutes } from "./routes/audioTelemetryRoutes";
 import { certificationAdditionalScoreRoutes } from "./routes/certificationAdditionalScoreRoutes";
 import { certificationScoreRoutes } from "./routes/certificationScoreRoutes";
 import { scoreImportRoutes } from "./routes/scoreImportRoutes";
+import { certificateExportRoutes } from "./routes/certificateExportRoutes";
 import { userRoutes } from "./routes/userRoutes";
 import { errorHandler } from "./middleware/errorHandler";
 import { apiRateLimiter } from "./middleware/rateLimiter";
@@ -51,6 +52,7 @@ export const createServer = () => {
   app.use("/api/exam-sessions", examSubmissionRoutes);
   app.use("/api/audio-telemetry", audioTelemetryRoutes);
   app.use("/api/certification-additional-scores", certificationAdditionalScoreRoutes);
+  app.use("/api/certification-scores/mass-download", certificateExportRoutes);
   app.use("/api/certification-scores", scoreImportRoutes);
   app.use("/api/certification-scores", certificationScoreRoutes);
   app.use("/api/users", userRoutes);
