@@ -159,7 +159,7 @@ export class ManageCertificationScores {
             scores = Array.from(latestMap.values()).map(v => v.score);
         }
 
-        return Promise.all(scores.map(async (score) => {
+        const enrichedScores = await Promise.all(scores.map(async (score) => {
             const submission = await this.submissionRepository.findById(score.examSubmissionId);
             const exam = submission ? await this.examRepository.findById(submission.examId) : null;
             const student = await this.studentRepository.findByUserId(score.userId);
@@ -181,8 +181,17 @@ export class ManageCertificationScores {
                 overrides: overridesList,
                 groupNumber,
                 degreeProgram,
+                _submittedAt: submission?.submittedAt ?? null,
             };
         }));
+
+        enrichedScores.sort((a, b) => {
+            const ta = a._submittedAt ? new Date(a._submittedAt).getTime() : 0;
+            const tb = b._submittedAt ? new Date(b._submittedAt).getTime() : 0;
+            return tb - ta;
+        });
+
+        return enrichedScores.map(({ _submittedAt: _, ...rest }) => rest);
     }
 
     async update(id: string, data: UpdateCertificationScoreData): Promise<CertificationScore | null> {
