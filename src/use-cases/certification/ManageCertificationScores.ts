@@ -226,30 +226,27 @@ export class ManageCertificationScores {
             if (invalidKey) throw new Error(`Unknown section name: ${invalidKey}`);
         }
 
-        let user = await this.userRepository.findByEmail(data.email);
-        if (!user) {
-            const dummyHash = await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 10);
-            user = await this.userRepository.create({
-                email: data.email,
-                passwordHash: dummyHash,
-                fullName: data.fullName,
-                role: 'user',
-                phoneNumber: data.phoneNumber ?? null,
-                isVerified: true,
-            });
-        }
+        const existingUser = await this.userRepository.findByEmail(data.email);
+        if (existingUser) throw new Error('Email already in use');
 
-        let student = await this.studentRepository.findByStudentId(data.studentId);
-        if (student && student.userId !== user.id) {
-            throw new Error('Student ID already used by another user');
-        }
-        if (!student) {
-            student = await this.studentRepository.create({
-                studentId: data.studentId,
-                userId: user.id,
-                degreeProgram: data.degreeProgram ?? null,
-            });
-        }
+        const existingStudent = await this.studentRepository.findByStudentId(data.studentId);
+        if (existingStudent) throw new Error('Student ID already in use');
+
+        const dummyHash = await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 10);
+        const user = await this.userRepository.create({
+            email: data.email,
+            passwordHash: dummyHash,
+            fullName: data.fullName,
+            role: 'user',
+            phoneNumber: data.phoneNumber ?? null,
+            isVerified: true,
+        });
+
+        const student = await this.studentRepository.create({
+            studentId: data.studentId,
+            userId: user.id,
+            degreeProgram: data.degreeProgram ?? null,
+        });
 
         const submission = await this.submissionRepository.create({
             userId: user.id,

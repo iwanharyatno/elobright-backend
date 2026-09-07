@@ -72,7 +72,8 @@ export class CertificationScoreController {
             if (error.message === 'Exam not found') return res.status(404).json({ error: error.message });
             if (error.message?.startsWith('Unknown section name')) return res.status(400).json({ error: error.message });
             if (error.message?.startsWith('Unknown additional score name')) return res.status(400).json({ error: error.message });
-            if (error.message === 'Student ID already used by another user') return res.status(409).json({ error: error.message });
+            if (error.message === 'Email already in use') return res.status(409).json({ error: error.message });
+            if (error.message === 'Student ID already in use') return res.status(409).json({ error: error.message });
             next(error);
         }
     };
