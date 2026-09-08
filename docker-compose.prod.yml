@@ -15,6 +15,7 @@ services:
       - "./uploads:/usr/src/app/uploads"
       - "./logs:/usr/src/app/logs"
       - "./drizzle:/usr/src/app/drizzle"
+      - "./tmp:/usr/src/app/tmp"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3000/health"]
       interval: 5s
@@ -30,6 +31,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    volumes:
+      - "./tmp:/usr/src/app/tmp"
     restart: unless-stopped
 
   pgadmin:

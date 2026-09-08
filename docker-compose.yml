@@ -13,6 +13,7 @@ services:
     volumes:
       - .:/usr/src/app
       - /usr/src/app/node_modules
+      - ./tmp:/usr/src/app/tmp
     command: yarn dev
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3000/health"]
@@ -29,6 +30,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    volumes:
+      - ./tmp:/usr/src/app/tmp
     restart: unless-stopped
 
   pgadmin:
